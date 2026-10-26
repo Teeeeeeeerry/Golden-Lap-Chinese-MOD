@@ -11,6 +11,7 @@
 """
 
 import base64
+import hashlib
 import json
 import re
 import shutil
@@ -62,9 +63,11 @@ def disable_bundle_crc(catalog_text: str) -> str:
         width = len(m.group(1)) // 2
         return m.group(0)[: -len(m.group(1))] + ("0" + " " * (width - 1)).encode("utf-16-le")
 
-    new_b64 = base64.b64encode(CRC_PATTERN.sub(zero, base64.b64decode(old_b64))).decode()
+    new_blob, count = CRC_PATTERN.subn(zero, base64.b64decode(old_b64))
+    if count == 0 or catalog_text.count(old_b64) != 1:
+        raise ValueError("catalog 中找不到可替换的 m_Crc")
     # 只替换 blob 本身，其余文本原样保留
-    return catalog_text.replace(old_b64, new_b64)
+    return catalog_text.replace(old_b64, base64.b64encode(new_blob).decode())
 
 
 def patch_string_table(bundle: bytes, translations: dict[int, str]) -> bytes:
@@ -74,12 +77,12 @@ def patch_string_table(bundle: bytes, translations: dict[int, str]) -> bytes:
         if obj.type.name != "MonoBehaviour":
             continue
         tree = obj.read_typetree()
-        hit = False
-        for entry in tree["m_TableData"]:
+        changed = False
+        for entry in tree.get("m_TableData", []):
             if entry["m_Id"] in translations:
                 entry["m_Localized"] = translations[entry["m_Id"]]
-                hit = True
-        if hit:
+                changed = True
+        if changed:
             obj.save_typetree(tree)
     return env.file.save(packer="lz4")
 
@@ -110,25 +113,43 @@ def add_cjk_fallback(bundle: bytes) -> bytes:
 
 def _targets() -> list[Path]:
     bundles = default_bundle_dir()
-    return [bundles.parent / "catalog.json", bundles / TURKISH_BUNDLE, next(bundles.glob(UI_BUNDLE_GLOB))]
+    ui = list(bundles.glob(UI_BUNDLE_GLOB))
+    if len(ui) != 1:
+        raise RuntimeError(f"应恰好有一个 {UI_BUNDLE_GLOB}，实际 {len(ui)} 个")
+    return [bundles.parent / "catalog.json", bundles / TURKISH_BUNDLE, ui[0]]
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def apply() -> None:
     catalog, turkish, ui = _targets()
     BACKUP_DIR.mkdir(exist_ok=True)
+    # 记录上次写入的补丁产物哈希；当前文件与之不同说明游戏已更新或被还原，需重新备份
+    manifest_path = BACKUP_DIR / "patched.json"
+    patched = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for path in (catalog, turkish, ui):
-        if not (BACKUP_DIR / path.name).exists():
+        if patched.get(path.name) != _sha256(path.read_bytes()):
             shutil.copy2(path, BACKUP_DIR / path.name)
+
     # 每次都从备份重打，保证可重复运行
-    catalog.write_text(disable_bundle_crc((BACKUP_DIR / catalog.name).read_text(encoding="utf-8")), encoding="utf-8")
-    turkish.write_bytes(patch_string_table((BACKUP_DIR / turkish.name).read_bytes(), SAMPLE_MENUS))
-    ui.write_bytes(add_cjk_fallback((BACKUP_DIR / ui.name).read_bytes()))
+    outputs = {
+        catalog: disable_bundle_crc((BACKUP_DIR / catalog.name).read_text(encoding="utf-8")).encode("utf-8"),
+        turkish: patch_string_table((BACKUP_DIR / turkish.name).read_bytes(), SAMPLE_MENUS),
+        ui: add_cjk_fallback((BACKUP_DIR / ui.name).read_bytes()),
+    }
+    for path, data in outputs.items():
+        path.write_bytes(data)
+        patched[path.name] = _sha256(data)
+    manifest_path.write_text(json.dumps(patched, indent=2))
     print("已注入；进游戏把语言切到土耳其语查看")
 
 
 def restore() -> None:
     for path in _targets():
         shutil.copy2(BACKUP_DIR / path.name, path)
+    (BACKUP_DIR / "patched.json").unlink(missing_ok=True)
     print("已还原")
 
 

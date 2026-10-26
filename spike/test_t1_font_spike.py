@@ -31,6 +31,11 @@ def test_disable_bundle_crc_zeroes_every_crc_without_changing_length():
     assert json.loads(patched)["other"] == "español"
 
 
+def test_disable_bundle_crc_rejects_catalog_without_crc():
+    with pytest.raises(ValueError):
+        spike.disable_bundle_crc(_catalog_with([{"m_Hash": "a"}]))
+
+
 # ---- 以下用玩家本地游戏文件读回验证；本机无游戏时跳过 ----
 
 needs_game = pytest.mark.skipif(not spike.default_bundle_dir().is_dir(), reason="本机未安装 Golden Lap")
@@ -69,8 +74,8 @@ def test_add_cjk_fallback_puts_noto_sc_into_every_ui_font_chain():
         if o.type.name == "MonoBehaviour":
             t = o.read_typetree()
             if "m_FaceInfo" in t:
-                fonts[t["m_Name"]] = (o.path_id, [r["m_PathID"] for r in t["m_FallbackFontAssetTable"]])
-    noto_id = fonts[spike.CJK_FONT_ASSET][0]
-    for name in ("LiberationSans SDF", "Figtree SDF", "Figtree-Bold SDF", "Figtree-BoldItalic SDF"):
-        assert noto_id in fonts[name][1], name
-    assert fonts[spike.CJK_FONT_ASSET][1] == []
+                fonts[t["m_Name"]] = (o.path_id, [(r["m_FileID"], r["m_PathID"]) for r in t["m_FallbackFontAssetTable"]])
+    noto_ref = (0, fonts[spike.CJK_FONT_ASSET][0])
+    for name, (_, chain) in fonts.items():
+        if name != spike.CJK_FONT_ASSET:
+            assert chain.count(noto_ref) == 1, name
