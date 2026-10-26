@@ -1,7 +1,7 @@
 {
   "1815846477824": {
     "en_hash": "d080822c0dfb5598",
-    "zh": "我比 {otherDriver} 快！他们在拖慢我！",
+    "zh": "我比 {otherDriver} 快！这家伙在拖慢我！",
     "status": "mt"
   },
   "1915264065536": {
@@ -351,7 +351,7 @@
   },
   "36252441474732032": {
     "en_hash": "d3a1598c6fe5703e",
-    "zh": "{healedDriver} 已完全康复。\n在 {substituteDriver} 顶替了过去几场比赛后，{healedDriver} 将重回 {teamName} 的座位。",
+    "zh": "{healedDriver} 已完全康复。\n此前几场比赛由 {substituteDriver} 顶替出赛，现将重回 {teamName} 的座位。",
     "status": "mt"
   },
   "37024993634230272": {

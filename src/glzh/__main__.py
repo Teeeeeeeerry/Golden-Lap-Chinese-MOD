@@ -23,10 +23,7 @@ def cmd_validate(args: list[str]) -> int:
     errors = translations.validate_dir()
     src = GameFiles.from_app(app_path())
     if not errors and src.exists():
-        english = string_tables.read_tables(src.english.read_bytes())
-        for table in translations.TABLES:
-            items = translations.load_table(translations.DEFAULT_DIR, table)
-            errors += [f"{table}.json: {err}" for err in markup.table_markup_errors(english[table], items)]
+        errors = markup.markup_errors_dir(string_tables.read_tables(src.english.read_bytes()))
     for err in errors:
         print(err)
     print("译文校验通过" if not errors else f"共 {len(errors)} 处错误")
@@ -65,7 +62,10 @@ def cmd_diff(args: list[str]) -> int:
     if args not in ([], ["--write"]):
         print("用法：python -m glzh diff [--write]")
         return 2
-    if cmd_validate([]) != 0:
+    # 只做格式校验：标记核对以当前英文为准，原文改动的条目正是这里要找出来的
+    errors = translations.validate_dir()
+    if errors:
+        print("\n".join(errors))
         return 1
     diffs = diff_with_game(GameFiles.from_app(app_path()))
     if args == ["--write"]:
