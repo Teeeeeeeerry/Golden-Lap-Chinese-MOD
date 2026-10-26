@@ -9,6 +9,7 @@ DEFAULT_APP = Path.home() / "Library/Application Support/Steam/steamapps/common/
 TURKISH_BUNDLE = "localization-string-tables-turkish_assets_all.bundle"
 ENGLISH_BUNDLE = "localization-string-tables-english_assets_all.bundle"
 LOCALES_BUNDLE = "localization-locales_assets_all.bundle"
+UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"  # 文件名含内容哈希，随游戏版本变化
 
 
 
@@ -47,5 +48,14 @@ class GameFiles:
     def locales(self) -> Path:
         return self.bundles / LOCALES_BUNDLE
 
+    @property
+    def ui(self) -> Path:
+        matches = sorted(self.bundles.glob(UI_BUNDLE_GLOB))
+        if len(matches) != 1:
+            raise FileNotFoundError(f"应恰好有一个 {UI_BUNDLE_GLOB}，实际 {len(matches)} 个")
+        return matches[0]
+
     def exists(self) -> bool:
-        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales))
+        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales)) and any(
+            self.bundles.glob(UI_BUNDLE_GLOB)
+        )

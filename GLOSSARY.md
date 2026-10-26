@@ -23,7 +23,7 @@ _Avoid_: Locale、语言包
 _Avoid_: StringTable、文本表
 
 **后备字体**:
-TMP 主字体缺字时按顺序回退取字形的字体。中文显示依赖向主字体 `LiberationSans SDF` 注入中文后备。
+TMP 字体缺字时按顺序回退取字形的字体。中文显示依赖把游戏自带的 `NotoSansSC-Black SDF` 追加到各界面字体的后备链（见 ADR 0003）。
 _Avoid_: fallback、备用字体
 
 **官方 MOD**:
