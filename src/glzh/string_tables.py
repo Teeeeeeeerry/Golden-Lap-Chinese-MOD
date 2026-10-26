@@ -2,19 +2,12 @@
 
 import UnityPy
 
-# 写回时必须压缩，否则 UnityPy 默认输出未压缩的包
-PACKER = "lz4"
-
-
-def _mono_behaviours(env):
-    for obj in env.objects:
-        if obj.type.name == "MonoBehaviour":
-            yield obj, obj.read_typetree()
+from glzh.bundles import PACKER, mono_behaviours
 
 
 def _tables(env):
     """遍历包内的字符串表：(对象, typetree, 表集合名)；表名形如 Menus_tr，集合名为 Menus。"""
-    for obj, tree in _mono_behaviours(env):
+    for obj, tree in mono_behaviours(env):
         if "m_TableData" in tree:
             yield obj, tree, tree["m_Name"].rsplit("_", 1)[0]
 
@@ -60,7 +53,7 @@ def rename_language_option(bundle: bytes, code: str, display_name: str, culture:
     """
     env = UnityPy.load(bundle)
     found = False
-    for obj, tree in _mono_behaviours(env):
+    for obj, tree in mono_behaviours(env):
         if tree.get("m_Identifier", {}).get("m_Code") != code or "m_LocaleName" not in tree:
             continue
         tree["m_LocaleName"] = display_name

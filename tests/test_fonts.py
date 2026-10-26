@@ -1,7 +1,9 @@
 import UnityPy
 import pytest
 
-from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, missing_glyphs, required_chars
+from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, missing_glyphs, required_chars
+
+PRIVATE_USE = "\ue000"  # 任何字体都不会有字形的私用区字符
 
 
 def test_required_chars_keeps_only_non_ascii_glyphs():
@@ -13,28 +15,18 @@ def ui(game) -> bytes:
     return game.ui.read_bytes()
 
 
-def font_assets(data: bytes) -> dict[int, dict]:
-    out = {}
-    for obj in UnityPy.load(data).objects:
-        if obj.type.name != "MonoBehaviour":
-            continue
-        try:
-            tree = obj.read_typetree()
-        except Exception:
-            continue
-        if "m_FaceInfo" in tree:
-            out[obj.path_id] = tree
-    return out
+def fonts_by_id(data: bytes) -> dict[int, dict]:
+    return {obj.path_id: tree for obj, tree in font_assets(UnityPy.load(data))}
 
 
 def test_missing_glyphs_reports_only_chars_the_cjk_font_lacks(ui):
     assert missing_glyphs(ui, set("简体中文生涯赛车设置退出")) == set()
-    assert missing_glyphs(ui, {""}) == {""}  # 私用区字符
+    assert missing_glyphs(ui, {PRIVATE_USE}) == {PRIVATE_USE}
 
 
 def test_add_cjk_fallback_points_every_font_to_cjk_once(ui):
-    before = font_assets(ui)
-    after = font_assets(add_cjk_fallback(ui))
+    before = fonts_by_id(ui)
+    after = fonts_by_id(add_cjk_fallback(ui))
     cjk_id = next(i for i, t in after.items() if t["m_Name"] == CJK_FONT_ASSET)
     assert before.keys() == after.keys() and len(after) > 10
     for path_id, tree in after.items():

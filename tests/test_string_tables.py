@@ -1,5 +1,6 @@
 import UnityPy
 
+from glzh import bundles
 from glzh.string_tables import localized_table, patch_string_tables, read_tables, rename_language_option
 from glzh.translations import en_hash
 
@@ -7,8 +8,7 @@ CAREER = 248174071668736  # Menus：Career
 
 
 def mono_behaviours(data: bytes) -> dict[int, dict]:
-    env = UnityPy.load(data)
-    return {o.path_id: o.read_typetree() for o in env.objects if o.type.name == "MonoBehaviour"}
+    return {obj.path_id: tree for obj, tree in bundles.mono_behaviours(UnityPy.load(data))}
 
 
 def test_read_tables_by_collection_name(game):

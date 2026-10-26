@@ -56,6 +56,8 @@ class GameFiles:
         return matches[0]
 
     def exists(self) -> bool:
-        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales)) and any(
-            self.bundles.glob(UI_BUNDLE_GLOB)
-        )
+        try:
+            ui = self.ui
+        except FileNotFoundError:
+            return False
+        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales, ui))

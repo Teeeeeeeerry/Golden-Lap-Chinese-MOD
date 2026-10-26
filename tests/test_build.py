@@ -5,7 +5,7 @@ from glzh.catalog import bundle_crcs
 from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
-from tests.test_fonts import font_assets
+from tests.test_fonts import PRIVATE_USE, fonts_by_id
 from tests.test_string_tables import mono_behaviours
 
 CAREER = 248174071668736
@@ -44,10 +44,10 @@ def test_build_writes_translations_with_english_fallback(game, outputs):
 
 
 def test_build_injects_cjk_fallback_and_zeroes_crc_of_patched_bundles(game, outputs):
-    fonts = font_assets(outputs[f"StandaloneOSX/{game.ui.name}"])
+    fonts = fonts_by_id(outputs[f"StandaloneOSX/{game.ui.name}"])
     cjk_id = next(i for i, t in fonts.items() if t["m_Name"] == "NotoSansSC-Black SDF")
     assert all(
-        any(ref["m_PathID"] == cjk_id for ref in t["m_FallbackFontAssetTable"]) for i, t in fonts.items() if i != cjk_id
+        any((ref["m_FileID"], ref["m_PathID"]) == (0, cjk_id) for ref in t["m_FallbackFontAssetTable"]) for i, t in fonts.items() if i != cjk_id
     )
     crcs = bundle_crcs(outputs["catalog.json"].decode("utf-8"))
     patched = {TURKISH_BUNDLE, LOCALES_BUNDLE, game.ui.name}
@@ -56,6 +56,6 @@ def test_build_injects_cjk_fallback_and_zeroes_crc_of_patched_bundles(game, outp
 
 
 def test_build_refuses_translations_the_cjk_font_cannot_render(game, tmp_path):
-    write_translations(tmp_path, "生涯")
-    with pytest.raises(ValueError, match=""):
+    write_translations(tmp_path, "生涯" + PRIVATE_USE)
+    with pytest.raises(ValueError, match="缺少"):
         build(game, tmp_path)
