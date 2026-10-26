@@ -1,32 +1,11 @@
-import hashlib
 import json
 import shutil
 
 import pytest
 
-from glzh.game import GameFiles
 from glzh.install import MANIFEST, AlreadyPatched, install
 from glzh.string_tables import read_tables
-
-
-def sha(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-@pytest.fixture
-def fake_game(game, tmp_path):
-    """把构建需要的游戏文件拷进临时 .app，避免改动真实游戏。"""
-    files = GameFiles.from_app(tmp_path / "goldenlap.app")
-    for src in game.inputs:
-        dst = files.aa / src.relative_to(game.aa)
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-    return files
-
-
-@pytest.fixture(scope="module")
-def originals(game):
-    return {p.relative_to(game.aa).as_posix(): sha(p) for p in (game.catalog, game.turkish, game.locales, game.ui)}
+from tests.conftest import sha
 
 
 def test_install_backs_up_originals_patches_game_and_is_repeatable(fake_game, originals, tmp_path):

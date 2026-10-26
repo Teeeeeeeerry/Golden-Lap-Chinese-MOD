@@ -1,4 +1,4 @@
-"""安装：备份玩家本地的原始文件，从备份构建并写回游戏。
+"""安装与还原：备份玩家本地的原始文件，从备份构建并写回游戏；还原时把备份拷回。
 
 备份目录布局与游戏的 Addressables 目录（StreamingAssets/aa）一致，便于直接作为构建输入：
 
@@ -75,3 +75,26 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
         _write_atomic(game.aa / rel, data)
     return sorted(outputs)
 
+
+
+def restore(game: GameFiles, backup_dir: Path = BACKUP_DIR) -> list[str]:
+    """把安装器写入的文件从备份拷回游戏，返回还原的文件（相对 aa 目录）。
+
+    只还原内容仍等于安装记录的文件：已被游戏更新或"验证文件完整性"覆盖的文件本就是原版，
+    用旧备份回退反而会与新版游戏不一致。备份不完整时不做任何改动并报错。
+    """
+    manifest_path = backup_dir / MANIFEST
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"没有找到安装记录 {manifest_path}，可能从未安装过汉化，未做任何改动")
+    patched = json.loads(manifest_path.read_text())
+    targets = [rel for rel, digest in patched.items() if (game.aa / rel).exists() and _sha256(game.aa / rel) == digest]
+    missing = [rel for rel in targets if not (backup_dir / rel).exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"备份缺少 {', '.join(missing)}，为免损坏游戏未做任何改动。"
+            "可在 Steam 中右键 Golden Lap → 属性 → 已安装文件 → 验证游戏文件的完整性，恢复原版。"
+        )
+    for rel in targets:
+        _write_atomic(game.aa / rel, (backup_dir / rel).read_bytes())
+    manifest_path.unlink()
+    return sorted(targets)

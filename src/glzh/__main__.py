@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str]) -> int:
-    commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff, "install": cmd_install}
+    commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff, "install": cmd_install, "restore": cmd_restore}
     if len(argv) < 1 or argv[0] not in commands:
         print(f"用法：python -m glzh {{{'|'.join(commands)}}}")
         return 2
@@ -92,6 +92,20 @@ def cmd_install(args: list[str]) -> int:
     for rel in written:
         print(f"已写入 {rel}")
     print(f"完成。原始文件备份在 {install.BACKUP_DIR}。进入游戏，在设置的语言选项中选择“简体中文”。")
+    return 0
+
+
+def cmd_restore(args: list[str]) -> int:
+    """python -m glzh restore：把游戏恢复到未汉化状态。"""
+    src = GameFiles.from_app(app_path())
+    try:
+        restored = install.restore(src)
+    except FileNotFoundError as e:
+        print(e)
+        return 1
+    for rel in restored:
+        print(f"已还原 {rel}")
+    print("完成。游戏已恢复为未汉化状态，语言选项中的土耳其语也已恢复。")
     return 0
 
 
