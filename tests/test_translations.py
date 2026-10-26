@@ -64,3 +64,15 @@ def test_save_table_round_trips_sorted_by_numeric_m_id(tmp_path):
 
 def test_shipped_translations_are_valid():
     assert validate_dir(DEFAULT_DIR) == []
+
+
+def test_shipped_translations_cover_every_english_item_with_matching_markup(game):
+    from glzh.markup import table_markup_errors
+    from glzh.string_tables import read_tables
+
+    english = read_tables(game.english.read_bytes())
+    for table in TABLES:
+        items = load_table(DEFAULT_DIR, table)
+        assert {str(i) for i, text in english[table].items() if text} <= items.keys(), table
+        assert table_markup_errors(english[table], items) == [], table
+        assert all(item["status"] in ("mt", "ok") for item in items.values())

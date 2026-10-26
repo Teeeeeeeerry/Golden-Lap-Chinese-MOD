@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from glzh import diff, string_tables, translations
+from glzh import diff, markup, string_tables, translations
 from glzh.build import build
 from glzh.game import GameFiles, app_path
 
@@ -19,7 +19,14 @@ def main(argv: list[str]) -> int:
 
 
 def cmd_validate(args: list[str]) -> int:
+    """校验译文格式；本机装有游戏时，再核对占位符、标签等标记与英文原文一致。"""
     errors = translations.validate_dir()
+    src = GameFiles.from_app(app_path())
+    if not errors and src.exists():
+        english = string_tables.read_tables(src.english.read_bytes())
+        for table in translations.TABLES:
+            items = translations.load_table(translations.DEFAULT_DIR, table)
+            errors += [f"{table}.json: {err}" for err in markup.table_markup_errors(english[table], items)]
     for err in errors:
         print(err)
     print("译文校验通过" if not errors else f"共 {len(errors)} 处错误")
