@@ -20,7 +20,7 @@
 .venv/bin/python scripts/release.py
 ```
 
-在 `dist/` 生成 `GoldenLap-zh-Hans-v<版本>.zip`，内含安装器、还原脚本、源码、译文与玩家说明（`docs/release-README.md`），不含任何游戏原始资源或字体（ADR 0002、0003）。把它上传到 GitHub Release 即可。创意工坊引流物品的文案与上传指引见 [workshop/](workshop/README.md)。
+先校验译文，再在 `dist/` 生成发布包 `GoldenLap-zh-Hans-v<版本>.zip`（只收录 git 跟踪的文件），内含安装器、还原脚本、源码、译文与玩家说明（`docs/release-README.md`），不含任何游戏原始资源或字体（ADR 0002、0003）。把它上传到 GitHub Release 即可。创意工坊引流物品的文案与上传指引见 [workshop/](workshop/README.md)。
 
 ## 开发
 
