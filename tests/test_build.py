@@ -2,6 +2,7 @@ from glzh.build import build
 from glzh.catalog import bundle_crcs
 from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
 from glzh.string_tables import read_tables
+from tests.test_string_tables import mono_behaviours
 from glzh.translations import TABLES, en_hash, save_table
 
 CAREER = 248174071668736
@@ -22,3 +23,5 @@ def test_build_writes_translations_english_fallback_and_zeroes_crc(game, tmp_pat
     assert all(tables[t][i] == english[t][i] for t in TABLES for i in english[t] if i != CAREER)
     crcs = bundle_crcs(outputs["catalog.json"].decode("utf-8"))
     assert crcs[TURKISH_BUNDLE] == 0 and crcs[LOCALES_BUNDLE] == 0
+    names = [t.get("m_LocaleName") for t in mono_behaviours(outputs[f"StandaloneOSX/{LOCALES_BUNDLE}"]).values()]
+    assert "简体中文" in names and "Turkish" not in names

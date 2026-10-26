@@ -5,7 +5,9 @@ from pathlib import Path
 
 from glzh import translations
 from glzh.build import build
-from glzh.game import DEFAULT_APP, GameFiles
+from glzh.game import GameFiles, app_path
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str]) -> int:
@@ -29,8 +31,11 @@ def cmd_build(args: list[str]) -> int:
     if len(args) != 1:
         print("用法：python -m glzh build <输出目录>")
         return 2
-    out = Path(args[0])
-    for rel, data in build(GameFiles.from_app(DEFAULT_APP)).items():
+    out = Path(args[0]).resolve()
+    if out.is_relative_to(REPO):
+        print("输出目录不能在仓库内：产物含游戏原始资源，不得提交（见 ADR 0002）")
+        return 2
+    for rel, data in build(GameFiles.from_app(app_path())).items():
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / rel).write_bytes(data)
         print(f"已写出 {out / rel}")

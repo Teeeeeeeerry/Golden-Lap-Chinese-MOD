@@ -14,17 +14,19 @@ CRC_PATTERN = re.compile(rb'"\x00m\x00_\x00C\x00r\x00c\x00"\x00:\x00((?:[0-9]\x0
 ENTRY = struct.Struct("<7i")  # internalId, provider, dependencyKey, depHash, extraData 偏移, primaryKey, resourceType
 
 
-def _crc_offsets(catalog: dict, extra: bytes) -> dict[str, re.Match]:
-    """资源包文件名 → 它在 extra blob 中的 m_Crc 匹配。"""
+def _crc_matches(catalog: dict, extra: bytes) -> dict[str, re.Match]:
+    """资源包文件名 → 它在 extra blob 中的 m_Crc 匹配（只在该条目自己的数据段内查找）。"""
     entries = base64.b64decode(catalog["m_EntryDataString"])
     (count,) = struct.unpack_from("<i", entries, 0)
+    rows = [ENTRY.unpack_from(entries, 4 + ENTRY.size * i) for i in range(count)]
+    starts = sorted({row[4] for row in rows if row[4] >= 0} | {len(extra)})
     found = {}
-    for i in range(count):
-        internal_id, _, _, _, data_offset, _, _ = ENTRY.unpack_from(entries, 4 + ENTRY.size * i)
+    for internal_id, _, _, _, data_offset, _, _ in rows:
         path = catalog["m_InternalIds"][internal_id]
         if not path.endswith(".bundle") or data_offset < 0:
             continue
-        match = CRC_PATTERN.search(extra, data_offset)
+        end = starts[starts.index(data_offset) + 1]
+        match = CRC_PATTERN.search(extra, data_offset, end)
         if match:
             found[path.rsplit("/", 1)[-1]] = match
     return found
@@ -35,16 +37,18 @@ def disable_crc(catalog_text: str, bundle_names: set[str]) -> str:
     catalog = json.loads(catalog_text)
     old_b64 = catalog["m_ExtraDataString"]
     extra = bytearray(base64.b64decode(old_b64))
-    offsets = _crc_offsets(catalog, bytes(extra))
-    missing = bundle_names - offsets.keys()
+    matches = _crc_matches(catalog, bytes(extra))
+    missing = bundle_names - matches.keys()
     if missing:
         raise ValueError(f"catalog 中找不到这些包的 m_Crc：{sorted(missing)}")
     for name in bundle_names:
-        digits = offsets[name].span(1)
+        digits = matches[name].span(1)
         width = (digits[1] - digits[0]) // 2
         extra[digits[0] : digits[1]] = ("0" + " " * (width - 1)).encode("utf-16-le")
-    if catalog_text.count(old_b64) != 1:
-        raise ValueError("catalog 中 m_ExtraDataString 不唯一")
+    occurrences = catalog_text.count(old_b64)
+    if occurrences != 1:
+        # 0 次通常是原文对 base64 中的 / 做了转义
+        raise ValueError(f"catalog 文本中 m_ExtraDataString 出现 {occurrences} 次，无法原位替换")
     # 只替换 blob 本身，其余文本原样保留
     return catalog_text.replace(old_b64, base64.b64encode(bytes(extra)).decode())
 
@@ -53,4 +57,4 @@ def bundle_crcs(catalog_text: str) -> dict[str, int]:
     """资源包文件名 → catalog 中记录的 CRC。"""
     catalog = json.loads(catalog_text)
     extra = base64.b64decode(catalog["m_ExtraDataString"])
-    return {name: int(m.group(1).decode("utf-16-le")) for name, m in _crc_offsets(catalog, extra).items()}
+    return {name: int(m.group(1).decode("utf-16-le")) for name, m in _crc_matches(catalog, extra).items()}

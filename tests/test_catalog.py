@@ -1,3 +1,5 @@
+import pytest
+
 from glzh.catalog import bundle_crcs, disable_crc
 from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
 
@@ -17,7 +19,5 @@ def test_disable_crc_keeps_catalog_length(game):
 
 
 def test_disable_crc_rejects_unknown_bundle(game):
-    import pytest
-
     with pytest.raises(ValueError, match="nope.bundle"):
         disable_crc(game.catalog.read_text(encoding="utf-8"), {"nope.bundle"})

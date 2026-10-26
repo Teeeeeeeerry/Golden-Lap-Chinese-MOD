@@ -1,5 +1,6 @@
 """玩家本地 Golden Lap 的文件布局。"""
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,7 +9,12 @@ DEFAULT_APP = Path.home() / "Library/Application Support/Steam/steamapps/common/
 TURKISH_BUNDLE = "localization-string-tables-turkish_assets_all.bundle"
 ENGLISH_BUNDLE = "localization-string-tables-english_assets_all.bundle"
 LOCALES_BUNDLE = "localization-locales_assets_all.bundle"
-UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"
+
+
+
+def app_path() -> Path:
+    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，否则用 Steam 默认库位置。"""
+    return Path(os.environ.get("GOLDEN_LAP_APP", DEFAULT_APP))
 
 
 @dataclass(frozen=True)
@@ -41,12 +47,5 @@ class GameFiles:
     def locales(self) -> Path:
         return self.bundles / LOCALES_BUNDLE
 
-    @property
-    def ui(self) -> Path:
-        matches = sorted(self.bundles.glob(UI_BUNDLE_GLOB))
-        if len(matches) != 1:
-            raise FileNotFoundError(f"应恰好有一个 {UI_BUNDLE_GLOB}，实际 {len(matches)} 个")
-        return matches[0]
-
     def exists(self) -> bool:
-        return self.catalog.exists() and self.turkish.exists() and self.english.exists()
+        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales))
