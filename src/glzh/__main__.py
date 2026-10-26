@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str]) -> int:
-    commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff, "install": cmd_install}
+    commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff, "install": cmd_install, "restore": cmd_restore}
     if len(argv) < 1 or argv[0] not in commands:
         print(f"用法：python -m glzh {{{'|'.join(commands)}}}")
         return 2
@@ -92,6 +92,25 @@ def cmd_install(args: list[str]) -> int:
     for rel in written:
         print(f"已写入 {rel}")
     print(f"完成。原始文件备份在 {install.BACKUP_DIR}。进入游戏，在设置的语言选项中选择“简体中文”。")
+    return 0
+
+
+def cmd_restore(args: list[str]) -> int:
+    """python -m glzh restore：把游戏恢复到未汉化状态。"""
+    src = GameFiles.from_app(app_path())
+    if not src.catalog.exists():
+        print(f"没有在 {src.aa} 找到 Golden Lap。请用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
+        return 1
+    try:
+        restored, skipped = install.restore(src)
+    except (install.NotInstalled, install.BackupIncomplete) as e:
+        print(e)
+        return 1
+    for rel in restored:
+        print(f"已还原 {rel}")
+    for rel in skipped:
+        print(f"已跳过 {rel}（已被游戏更新或校验覆盖，本就是原版）")
+    print("完成。游戏已恢复为未汉化状态，语言选项中的土耳其语也已恢复。")
     return 0
 
 
