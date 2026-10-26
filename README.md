@@ -12,6 +12,8 @@ python3 -m venv .venv
 
 - 译文数据格式：[docs/translation-format.md](docs/translation-format.md)
 - 校验译文：`PYTHONPATH=src .venv/bin/python -m glzh validate`
+- 游戏更新后比对差异：`PYTHONPATH=src .venv/bin/python -m glzh diff [--write]`
+- 构建到仓库外的目录（不改动游戏）：`PYTHONPATH=src .venv/bin/python -m glzh build <目录>`
 - 术语见 [GLOSSARY.md](GLOSSARY.md)，架构决策见 [docs/adr](docs/adr)
 
 ## 许可
