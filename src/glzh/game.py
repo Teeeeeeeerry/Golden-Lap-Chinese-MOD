@@ -4,6 +4,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from glzh.steam import find_app
+
 DEFAULT_APP = Path.home() / "Library/Application Support/Steam/steamapps/common/Golden Lap/goldenlap.app"
 
 TURKISH_BUNDLE = "localization-string-tables-turkish_assets_all.bundle"
@@ -14,8 +16,10 @@ UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"  # 文件名含内容哈希，随游�
 
 
 def app_path() -> Path:
-    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，否则用 Steam 默认库位置。"""
-    return Path(os.environ.get("GOLDEN_LAP_APP", DEFAULT_APP))
+    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，其次在各 Steam 库中查找，最后用 Steam 默认库位置。"""
+    if "GOLDEN_LAP_APP" in os.environ:
+        return Path(os.environ["GOLDEN_LAP_APP"])
+    return find_app() or DEFAULT_APP
 
 
 @dataclass(frozen=True)
@@ -27,6 +31,10 @@ class GameFiles:
     @classmethod
     def from_app(cls, app: Path) -> "GameFiles":
         return cls(Path(app) / "Contents/Resources/Data/StreamingAssets/aa")
+
+    @property
+    def app(self) -> Path:
+        return self.aa.parents[4]  # goldenlap.app/Contents/Resources/Data/StreamingAssets/aa
 
     @property
     def bundles(self) -> Path:
@@ -55,9 +63,13 @@ class GameFiles:
             raise FileNotFoundError(f"应恰好有一个 {UI_BUNDLE_GLOB}，实际 {len(matches)} 个")
         return matches[0]
 
+    @property
+    def inputs(self) -> list[Path]:
+        """构建需要读取的原始文件。"""
+        return [self.catalog, self.english, self.turkish, self.locales, self.ui]
+
     def exists(self) -> bool:
         try:
-            ui = self.ui
+            return all(path.exists() for path in self.inputs)
         except FileNotFoundError:
             return False
-        return all(path.exists() for path in (self.catalog, self.turkish, self.english, self.locales, ui))

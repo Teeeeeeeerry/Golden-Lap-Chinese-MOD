@@ -2,7 +2,7 @@
 name = "golden-lap-zh"
 dynamic = ["version"]
 description = "Golden Lap 简体中文汉化安装器"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 
 [build-system]
