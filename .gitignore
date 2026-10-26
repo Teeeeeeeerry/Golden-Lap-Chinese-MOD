@@ -1,0 +1,4 @@
+.venv/
+.spike-backup/
+__pycache__/
+.pytest_cache/
