@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from glzh import translations
+from glzh import diff, string_tables, translations
 from glzh.build import build
 from glzh.game import GameFiles, app_path
 
@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def main(argv: list[str]) -> int:
-    commands = {"validate": cmd_validate, "build": cmd_build}
+    commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff}
     if len(argv) < 1 or argv[0] not in commands:
         print(f"用法：python -m glzh {{{'|'.join(commands)}}}")
         return 2
@@ -35,10 +35,35 @@ def cmd_build(args: list[str]) -> int:
     if out.is_relative_to(REPO):
         print("输出目录不能在仓库内：产物含游戏原始资源，不得提交（见 ADR 0002）")
         return 2
-    for rel, data in build(GameFiles.from_app(app_path())).items():
+    src = GameFiles.from_app(app_path())
+    # 只报告不写回：构建在玩家本地运行，不改仓库译文
+    diff_with_game(src)
+    for rel, data in build(src).items():
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
         (out / rel).write_bytes(data)
         print(f"已写出 {out / rel}")
+    return 0
+
+
+def diff_with_game(src: GameFiles) -> dict[str, diff.TableDiff]:
+    """比对本地英文原文与仓库译文，并打印报告。"""
+    english = string_tables.read_tables(src.english.read_bytes())
+    diffs = diff.diff_against_english(english, translations.DEFAULT_DIR)
+    print(diff.format_report(diffs))
+    return diffs
+
+
+def cmd_diff(args: list[str]) -> int:
+    """python -m glzh diff [--write]：游戏更新后列出待译、待复核、废弃的条目；--write 把改动条目置 stale 写回。"""
+    if args not in ([], ["--write"]):
+        print("用法：python -m glzh diff [--write]")
+        return 2
+    if cmd_validate([]) != 0:
+        return 1
+    diffs = diff_with_game(GameFiles.from_app(app_path()))
+    if args == ["--write"]:
+        for table, d in diffs.items():
+            translations.save_table(translations.DEFAULT_DIR, table, d.updated)
     return 0
 
 
