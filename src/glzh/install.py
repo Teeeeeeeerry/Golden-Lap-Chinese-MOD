@@ -29,8 +29,24 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+VERIFY_HINT = "可在 Steam 中右键 Golden Lap → 属性 → 已安装文件 → 验证游戏文件的完整性，恢复原版。"
+
+
 class AlreadyPatched(RuntimeError):
     """游戏文件已被改过，却没有对应的安装记录，无法取得原版备份。"""
+
+
+class NotInstalled(RuntimeError):
+    """没有安装记录，无从还原。"""
+
+
+class BackupIncomplete(RuntimeError):
+    """需要还原的文件缺少备份。"""
+
+
+def _read_manifest(backup_dir: Path) -> dict[str, str]:
+    path = backup_dir / MANIFEST
+    return json.loads(path.read_text()) if path.exists() else {}
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -43,7 +59,7 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
     """备份并注入，返回写入游戏的文件（相对 aa 目录）。"""
     backup = GameFiles(backup_dir)
     manifest_path = backup_dir / MANIFEST
-    patched = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    patched = _read_manifest(backup_dir)
     to_backup = []
     for path in game.inputs:
         rel, digest = path.relative_to(game.aa).as_posix(), _sha256(path)
@@ -54,10 +70,7 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
         to_backup.append(path)
     # 备份前确认当前文件是原版：catalog 中土耳其语包 CRC 为 0 说明游戏已被改过（例如删掉了备份目录后重跑）
     if to_backup and bundle_crcs(game.catalog.read_text(encoding="utf-8")).get(game.turkish.name) == 0:
-        raise AlreadyPatched(
-            "游戏文件已被修改过，但找不到对应的原版备份。请先在 Steam 中右键 Golden Lap → 属性 → 已安装文件 → "
-            "验证游戏文件的完整性，恢复原版后再运行安装器。"
-        )
+        raise AlreadyPatched(f"游戏文件已被修改过，但找不到对应的原版备份。{VERIFY_HINT}恢复后再运行安装器。")
     for path in to_backup:
         dst = backup_dir / path.relative_to(game.aa)
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -76,25 +89,22 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
     return sorted(outputs)
 
 
-
-def restore(game: GameFiles, backup_dir: Path = BACKUP_DIR) -> list[str]:
-    """把安装器写入的文件从备份拷回游戏，返回还原的文件（相对 aa 目录）。
+def restore(game: GameFiles, backup_dir: Path = BACKUP_DIR) -> tuple[list[str], list[str]]:
+    """把安装器写入的文件从备份拷回游戏，返回 (已还原, 已跳过) 的文件（相对 aa 目录）。
 
     只还原内容仍等于安装记录的文件：已被游戏更新或"验证文件完整性"覆盖的文件本就是原版，
-    用旧备份回退反而会与新版游戏不一致。备份不完整时不做任何改动并报错。
+    用旧备份回退反而会与新版游戏不一致，跳过。找不到游戏或备份不完整时不做任何改动并报错。
     """
-    manifest_path = backup_dir / MANIFEST
-    if not manifest_path.exists():
-        raise FileNotFoundError(f"没有找到安装记录 {manifest_path}，可能从未安装过汉化，未做任何改动")
-    patched = json.loads(manifest_path.read_text())
-    targets = [rel for rel, digest in patched.items() if (game.aa / rel).exists() and _sha256(game.aa / rel) == digest]
+    if not game.catalog.exists():
+        raise FileNotFoundError(f"没有在 {game.aa} 找到 Golden Lap，未做任何改动")
+    patched = _read_manifest(backup_dir)
+    if not patched:
+        raise NotInstalled(f"没有找到安装记录（{backup_dir / MANIFEST}），未做任何改动。若游戏仍显示汉化，{VERIFY_HINT}")
+    targets = sorted(rel for rel, digest in patched.items() if (game.aa / rel).exists() and _sha256(game.aa / rel) == digest)
     missing = [rel for rel in targets if not (backup_dir / rel).exists()]
     if missing:
-        raise FileNotFoundError(
-            f"备份缺少 {', '.join(missing)}，为免损坏游戏未做任何改动。"
-            "可在 Steam 中右键 Golden Lap → 属性 → 已安装文件 → 验证游戏文件的完整性，恢复原版。"
-        )
+        raise BackupIncomplete(f"备份缺少 {', '.join(missing)}，为免损坏游戏未做任何改动。{VERIFY_HINT}")
     for rel in targets:
         _write_atomic(game.aa / rel, (backup_dir / rel).read_bytes())
-    manifest_path.unlink()
-    return sorted(targets)
+    (backup_dir / MANIFEST).unlink()
+    return targets, sorted(patched.keys() - set(targets))
