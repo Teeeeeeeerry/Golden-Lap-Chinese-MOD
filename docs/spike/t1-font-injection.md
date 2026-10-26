@@ -26,3 +26,5 @@
 
 - T3（#4）：写回土耳其语字符串表包后必须同步把 catalog 中的 CRC 置 0，并用 `packer="lz4"` 保存。
 - T4（#5）：无需生成字体子集或烘焙 SDF，复用游戏自带 `NotoSansSC-Black SDF` 即可；代价是全部中文都是 Black 字重。若要更细字重，仍需按 ADR 0002 注入另一套思源黑体。ADR 0002 需据此复核；spike 把 catalog 中全部包的 CRC 都置 0，生产版应只清被改的包，并同步修订 ADR 0001 中“catalog 不改动”的表述。
+
+后续：T3、T4 已按上述结论实现（`glzh.catalog`、`glzh.fonts`），字体决策见 ADR 0003。
