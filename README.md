@@ -2,6 +2,14 @@
 
 为 Golden Lap 增加简体中文界面：以简体中文顶替游戏的土耳其语语言选项，并让界面字体能显示中文。所有改动都在玩家本地完成，本仓库不含任何游戏原始资源。
 
+## 安装（macOS）
+
+1. 需要 Python 3.11 或更新版本（系统自带的通常是 3.9，可从 [python.org](https://www.python.org/downloads/macos/) 安装）。
+2. 双击 `macos/install.command`（发布包中为 `install.command`）。首次运行会联网安装依赖。安装器会自动查找 Steam 中的 Golden Lap，备份原始文件后注入汉化。
+3. 进入游戏，在设置的语言选项中选择“简体中文”（原土耳其语位置）。
+
+游戏更新或在 Steam 中“验证游戏文件完整性”后，汉化会被覆盖，再双击一次安装器即可。原始文件备份在 `~/Library/Application Support/GoldenLapZH/backup`。若游戏不在 Steam 的默认位置且未被找到，可设置环境变量 `GOLDEN_LAP_APP` 指向 `goldenlap.app`。
+
 ## 开发
 
 ```bash

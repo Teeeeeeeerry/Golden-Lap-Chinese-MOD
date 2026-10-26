@@ -14,8 +14,12 @@ UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"  # 文件名含内容哈希，随游�
 
 
 def app_path() -> Path:
-    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，否则用 Steam 默认库位置。"""
-    return Path(os.environ.get("GOLDEN_LAP_APP", DEFAULT_APP))
+    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，其次在各 Steam 库中查找，最后用 Steam 默认库位置。"""
+    from glzh.steam import find_app
+
+    if "GOLDEN_LAP_APP" in os.environ:
+        return Path(os.environ["GOLDEN_LAP_APP"])
+    return find_app() or DEFAULT_APP
 
 
 @dataclass(frozen=True)
