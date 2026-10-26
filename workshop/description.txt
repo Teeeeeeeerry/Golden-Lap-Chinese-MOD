@@ -1,0 +1,25 @@
+[h1]Golden Lap 简体中文汉化（说明页）[/h1]
+
+[b]本物品不含任何汉化内容，订阅它不会让游戏变成中文，也无需在游戏中启用。[/b]它只是一个说明页，指向 GitHub 上的汉化项目。
+
+游戏自带的 MOD 系统只能加载数据文本和图片，无法替换界面文本和字体，所以汉化无法通过创意工坊分发。请到项目主页下载安装器：
+
+[url=https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases]https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases[/url]
+
+[h2]汉化内容[/h2]
+[list]
+[*]菜单、按钮、提示、赛事事件等界面文本（当前为机翻初稿，持续校对中）
+[*]中文使用游戏自带的思源黑体显示，安装器会检查译文用字都有字形
+[*]以「简体中文」顶替语言菜单中的「土耳其语」
+[/list]
+
+[h2]使用方法（macOS）[/h2]
+[olist]
+[*]安装 Python 3.11 或更新版本
+[*]下载发布包并解压，右键 install.command → 打开（首次运行需联网安装依赖）
+[*]进入游戏，设置 → 语言 → 简体中文
+[/olist]
+游戏更新后再运行一次安装器即可；运行 restore.command 可恢复原版。Windows 版尚在计划中。
+
+[h2]许可[/h2]
+脚本：MIT；译文：CC BY-NC-SA 4.0。安装器只在玩家本地修改游戏文件，发布包不含任何游戏原始资源。

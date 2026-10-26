@@ -14,6 +14,14 @@
 
 双击 `macos/restore.command`（发布包中为 `restore.command`），即可从备份恢复被改动的文件，游戏回到未汉化状态，语言选项中的土耳其语也会恢复。只还原仍是汉化版本的文件；已被游戏更新覆盖的文件本身就是原版，会跳过。若备份缺失，脚本不会改动游戏，并提示在 Steam 中“验证游戏文件完整性”恢复原版。确认不再需要后，可删除 `~/Library/Application Support/GoldenLapZH`。
 
+## 发布
+
+```bash
+.venv/bin/python scripts/release.py
+```
+
+先校验译文，再在 `dist/` 生成发布包 `GoldenLap-zh-Hans-v<版本>.zip`（只收录 git 跟踪的文件），内含安装器、还原脚本、源码、译文与玩家说明（`docs/release-README.md`），不含任何游戏原始资源或字体（ADR 0002、0003）。把它上传到 GitHub Release 即可。创意工坊引流物品的文案与上传指引见 [workshop/](workshop/README.md)。
+
 ## 开发
 
 ```bash
