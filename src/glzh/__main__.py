@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from glzh import diff, string_tables, translations
+from glzh import diff, markup, string_tables, translations
 from glzh.build import build
 from glzh.game import GameFiles, app_path
 
@@ -19,7 +19,11 @@ def main(argv: list[str]) -> int:
 
 
 def cmd_validate(args: list[str]) -> int:
+    """校验译文格式；本机装有游戏时，再核对占位符、标签等标记与英文原文一致。"""
     errors = translations.validate_dir()
+    src = GameFiles.from_app(app_path())
+    if not errors and src.exists():
+        errors = markup.markup_errors_dir(string_tables.read_tables(src.english.read_bytes()))
     for err in errors:
         print(err)
     print("译文校验通过" if not errors else f"共 {len(errors)} 处错误")
@@ -58,7 +62,10 @@ def cmd_diff(args: list[str]) -> int:
     if args not in ([], ["--write"]):
         print("用法：python -m glzh diff [--write]")
         return 2
-    if cmd_validate([]) != 0:
+    # 只做格式校验：标记核对以当前英文为准，原文改动的条目正是这里要找出来的
+    errors = translations.validate_dir()
+    if errors:
+        print("\n".join(errors))
         return 1
     diffs = diff_with_game(GameFiles.from_app(app_path()))
     if args == ["--write"]:
