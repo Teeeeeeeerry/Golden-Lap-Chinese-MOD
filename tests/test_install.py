@@ -5,7 +5,7 @@ import shutil
 import pytest
 
 from glzh.game import GameFiles
-from glzh.install import MANIFEST, install
+from glzh.install import MANIFEST, AlreadyPatched, install
 from glzh.string_tables import read_tables
 
 
@@ -17,7 +17,7 @@ def sha(path):
 def fake_game(game, tmp_path):
     """把构建需要的游戏文件拷进临时 .app，避免改动真实游戏。"""
     files = GameFiles.from_app(tmp_path / "goldenlap.app")
-    for src in (game.catalog, game.english, game.turkish, game.locales, game.ui):
+    for src in game.inputs:
         dst = files.aa / src.relative_to(game.aa)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
@@ -48,8 +48,15 @@ def test_install_backs_up_originals_patches_game_and_is_repeatable(fake_game, or
 def test_install_refreshes_backup_after_game_update(fake_game, game, tmp_path):
     backup = tmp_path / "backup"
     install(fake_game, backup)
-    # 模拟游戏更新：土耳其语包被新版本覆盖（这里用原版代替，内容与补丁不同即可）
+    # 模拟游戏更新：catalog 与土耳其语包被新版本覆盖（这里用原版代替，内容与注入后不同即可）
+    shutil.copy2(game.catalog, fake_game.catalog)
     shutil.copy2(game.turkish, fake_game.turkish)
     (backup / "StandaloneOSX" / game.turkish.name).write_bytes(b"stale backup")
     install(fake_game, backup)
     assert sha(backup / "StandaloneOSX" / game.turkish.name) == sha(game.turkish)
+
+
+def test_install_refuses_when_game_is_patched_but_backup_is_gone(fake_game, tmp_path):
+    install(fake_game, tmp_path / "backup")
+    with pytest.raises(AlreadyPatched, match="验证游戏文件的完整性"):
+        install(fake_game, tmp_path / "new-backup")

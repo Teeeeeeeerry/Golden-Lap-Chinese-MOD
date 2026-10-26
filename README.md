@@ -5,7 +5,7 @@
 ## 安装（macOS）
 
 1. 需要 Python 3.11 或更新版本（系统自带的通常是 3.9，可从 [python.org](https://www.python.org/downloads/macos/) 安装）。
-2. 双击 `macos/install.command`（发布包中为 `install.command`）。首次运行会联网安装依赖。安装器会自动查找 Steam 中的 Golden Lap，备份原始文件后注入汉化。
+2. 双击 `macos/install.command`（发布包中为 `install.command`）。从网上下载的脚本第一次会被 macOS 拦截（“无法验证开发者”）：请在访达中右键点它 → 打开 → 再点“打开”；或在终端运行 `xattr -dr com.apple.quarantine <解压后的文件夹>` 后再双击。之后脚本会自行解除包内其余文件的隔离属性。首次运行会联网安装依赖。安装器会自动查找 Steam 中的 Golden Lap，备份原始文件后注入汉化。
 3. 进入游戏，在设置的语言选项中选择“简体中文”（原土耳其语位置）。
 
 游戏更新或在 Steam 中“验证游戏文件完整性”后，汉化会被覆盖，再双击一次安装器即可。原始文件备份在 `~/Library/Application Support/GoldenLapZH/backup`。若游戏不在 Steam 的默认位置且未被找到，可设置环境变量 `GOLDEN_LAP_APP` 指向 `goldenlap.app`。

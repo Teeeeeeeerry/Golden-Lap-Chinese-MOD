@@ -80,11 +80,16 @@ def cmd_install(args: list[str]) -> int:
     if not src.exists():
         print(f"没有在 {src.aa} 找到 Golden Lap。请确认已在 Steam 中安装，或用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
         return 1
-    print(f"游戏位置：{src.aa.parents[4]}")
+    print(f"游戏位置：{src.app}")
     print("译文覆盖情况（未翻译的条目显示英文）：")
     diff_with_game(src)
     print("正在备份并注入，ui 包较大，约需半分钟……")
-    for rel in install.install(src):
+    try:
+        written = install.install(src)
+    except install.AlreadyPatched as e:
+        print(e)
+        return 1
+    for rel in written:
         print(f"已写入 {rel}")
     print(f"完成。原始文件备份在 {install.BACKUP_DIR}。进入游戏，在设置的语言选项中选择“简体中文”。")
     return 0
