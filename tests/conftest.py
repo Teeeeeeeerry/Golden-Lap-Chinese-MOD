@@ -23,13 +23,16 @@ def sha(path):
 def fake_game(game, tmp_path):
     """把构建需要的游戏文件拷进临时 .app，避免改动真实游戏。"""
     files = GameFiles.from_app(tmp_path / "goldenlap.app")
-    for src in game.inputs:
-        dst = files.aa / src.relative_to(game.aa)
+    for src in game.inputs + [game.globalgamemanagers]:
+        dst = files.data / src.relative_to(game.data)
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
+    files.managed.symlink_to(game.managed)  # 只读依赖，不必拷贝
     return files
 
 
 @pytest.fixture(scope="module")
 def originals(game):
-    return {p.relative_to(game.aa).as_posix(): sha(p) for p in (game.catalog, game.turkish, game.locales, game.ui)}
+    """安装器会改动的文件（相对 Data 目录）→ 原版 sha256。"""
+    patched = (game.catalog, game.turkish, game.locales, game.ui, game.resources)
+    return {p.relative_to(game.data).as_posix(): sha(p) for p in patched}

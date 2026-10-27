@@ -1,6 +1,7 @@
 # 运行时依赖（锁定版本）
 UnityPy==1.25.4
 fonttools==4.67.0
+TypeTreeGeneratorAPI==0.0.10
 astc-encoder-py==0.1.12
 attrs==26.1.0
 brotli==1.2.1

@@ -4,9 +4,10 @@
 PACKER = "lz4"
 
 
-def mono_behaviours(env):
-    """遍历包内可读出类型信息的 MonoBehaviour：(对象, typetree)。"""
-    for obj in env.objects:
+def mono_behaviours(container):
+    """遍历资源包或序列化文件中可读出类型信息的 MonoBehaviour：(对象, typetree)。"""
+    objects = container.objects.values() if isinstance(container.objects, dict) else container.objects
+    for obj in objects:
         if obj.type.name != "MonoBehaviour":
             continue
         try:
