@@ -3,9 +3,11 @@ import shutil
 
 import pytest
 
+from glzh.fonts import CJK_FONT_ASSET, is_injected_serialized
 from glzh.install import MANIFEST, AlreadyPatched, install, restore
 from glzh.string_tables import read_tables
 from tests.conftest import sha
+from tests.test_fonts import edit_serialized_font, serialized_fonts
 
 AA = "StreamingAssets/aa"
 
@@ -103,19 +105,16 @@ def test_install_reverts_files_it_no_longer_writes(fake_game, originals, tmp_pat
 
 def test_install_upgrades_v0_0_11_resources_assets_to_multi_atlas(fake_game, game, originals, tmp_path):
     """v0.0.11 的 resources.assets 挂了中文后备但没开多图集：不能被当成原版，重跑应从备份重建。"""
-    from tests.test_fonts import edit_serialized_font, serialized_fonts
-
     backup = tmp_path / "backup"
     install(fake_game, backup)
-    edit_serialized_font(fake_game, "NotoSansSC-Black SDF", m_IsMultiAtlasTexturesEnabled=0)
-    with pytest.raises(AlreadyPatched):
-        install(fake_game, tmp_path / "new-backup")
+    edit_serialized_font(fake_game, CJK_FONT_ASSET, m_IsMultiAtlasTexturesEnabled=0)
+    assert is_injected_serialized(fake_game.resources.read_bytes(), fake_game)
     manifest = json.loads((backup / MANIFEST).read_text())
     (backup / MANIFEST).write_text(json.dumps(manifest | {"resources.assets": sha(fake_game.resources)}))
 
     install(fake_game, backup)
     assert all(sha(backup / rel) == digest for rel, digest in originals.items())
-    cjk = next(t for t in serialized_fonts(fake_game.resources.read_bytes(), game).values() if t["m_Name"] == "NotoSansSC-Black SDF")
+    cjk = next(t for t in serialized_fonts(fake_game.resources.read_bytes(), game).values() if t["m_Name"] == CJK_FONT_ASSET)
     assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
     restore(fake_game, backup)
     assert {rel: sha(fake_game.data / rel) for rel in originals} == originals

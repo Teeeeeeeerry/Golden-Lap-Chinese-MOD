@@ -9,14 +9,14 @@ from glzh.game import GameFiles, app_path
 from glzh.install import BACKUP_DIR, MANIFEST
 
 
-def copy_game(src: GameFiles, app: Path, originals: Path | None = None) -> GameFiles:
-    """把构建需要的游戏文件拷进 app；originals 中有的文件优先取那里的版本。"""
+def copy_game(src: GameFiles, app: Path, backup_dir: Path | None = None) -> GameFiles:
+    """把构建需要的游戏文件拷进 app；backup_dir 中有的文件优先取那里的版本。"""
     files = GameFiles.from_app(app)
     for path in src.inputs + [src.globalgamemanagers]:
         rel = path.relative_to(src.data)
         dst = files.data / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(originals / rel if originals and (originals / rel).exists() else path, dst)
+        shutil.copy2(backup_dir / rel if backup_dir and (backup_dir / rel).exists() else path, dst)
     files.managed.symlink_to(src.managed)  # 只读依赖，不必拷贝
     return files
 

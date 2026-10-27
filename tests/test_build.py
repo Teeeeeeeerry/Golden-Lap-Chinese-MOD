@@ -2,6 +2,7 @@ import pytest
 
 from glzh.build import build
 from glzh.catalog import bundle_crcs
+from glzh.fonts import CJK_FONT_ASSET
 from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
@@ -137,5 +138,5 @@ def test_build_localizes_hardcoded_text_without_changing_other_languages(game, o
 def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
     """单张 1024² 动态图集只装得下约 90 个中文字，写满后新字成方框；开启多图集后 TMP 会加开新图集。"""
     for fonts in (fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
-        cjk = next(t for t in fonts.values() if t["m_Name"] == "NotoSansSC-Black SDF")
+        cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
         assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
