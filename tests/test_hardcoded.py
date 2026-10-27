@@ -12,6 +12,14 @@ def test_valid_hardcoded_items_use_slug_keys():
     assert validate_hardcoded({"123": ITEM}) == ["123: 键必须是以小写字母开头、由小写字母、数字、下划线与 / 组成的语义键"]
 
 
+def test_duplicate_source_hash_and_non_object_file_are_reported(tmp_path):
+    from glzh.hardcoded import validate_file
+
+    assert validate_hardcoded({"a/x": ITEM, "a/y": ITEM}) == [f"en_hash {ITEM['en_hash']} 重复：同一原文只能对应一条译文"]
+    (tmp_path / "Hardcoded.json").write_text("[]", encoding="utf-8")
+    assert validate_file(tmp_path) == ["Hardcoded.json: 顶层必须是对象"]
+
+
 def test_entry_id_is_stable_and_does_not_clash_with_game_ids(game):
     assert entry_id("main_menu/our_new_game") == entry_id("main_menu/our_new_game")
     assert entry_id("main_menu/our_new_game") != entry_id("main_menu/other")

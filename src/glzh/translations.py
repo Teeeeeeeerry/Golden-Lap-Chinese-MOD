@@ -25,28 +25,34 @@ def en_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
+def validate_item(item) -> list[str]:
+    """校验一条译文的值（en_hash/zh/status），返回不带键前缀的错误信息。"""
+    if not isinstance(item, dict):
+        return ["值必须是对象"]
+    errors = []
+    for field in FIELDS:
+        if field not in item:
+            errors.append(f"缺少 {field}")
+        elif not isinstance(item[field], str):
+            errors.append(f"{field} 必须是字符串")
+    for field in item.keys() - set(FIELDS):
+        errors.append(f"多余字段 {field}")
+    if isinstance(item.get("en_hash"), str) and not EN_HASH.fullmatch(item["en_hash"]):
+        errors.append("en_hash 应为 16 位小写十六进制")
+    if item.get("zh") == "":
+        errors.append("zh 不能为空")
+    if isinstance(item.get("status"), str) and item["status"] not in STATUSES:
+        errors.append(f"非法 status {item['status']}（应为 {'/'.join(STATUSES)}）")
+    return errors
+
+
 def validate_table(table: dict) -> list[str]:
     """校验一张表的译文数据，返回错误信息列表；为空表示通过。"""
     errors = []
     for key, item in table.items():
         if not M_ID.fullmatch(key):
             errors.append(f"{key}: 键必须是数字 m_Id")
-        if not isinstance(item, dict):
-            errors.append(f"{key}: 值必须是对象")
-            continue
-        for field in FIELDS:
-            if field not in item:
-                errors.append(f"{key}: 缺少 {field}")
-            elif not isinstance(item[field], str):
-                errors.append(f"{key}: {field} 必须是字符串")
-        for field in item.keys() - set(FIELDS):
-            errors.append(f"{key}: 多余字段 {field}")
-        if isinstance(item.get("en_hash"), str) and not EN_HASH.fullmatch(item["en_hash"]):
-            errors.append(f"{key}: en_hash 应为 16 位小写十六进制")
-        if item.get("zh") == "":
-            errors.append(f"{key}: zh 不能为空")
-        if isinstance(item.get("status"), str) and item["status"] not in STATUSES:
-            errors.append(f"{key}: 非法 status {item['status']}（应为 {'/'.join(STATUSES)}）")
+        errors += [f"{key}: {err}" for err in validate_item(item)]
     return errors
 
 
@@ -91,10 +97,7 @@ def validate_dir(directory: Path = DEFAULT_DIR) -> list[str]:
             errors.append(f"{name}: 顶层必须是对象")
             continue
         errors += [f"{name}: {err}" for err in validate_table(data)]
-    from glzh import hardcoded  # 避免循环导入：hardcoded 复用本模块的校验
+    from glzh import hardcoded  # 函数内导入：hardcoded 在模块顶层依赖本模块
 
-    try:
-        errors += [f"{hardcoded.FILE}: {err}" for err in hardcoded.validate_hardcoded(hardcoded.load_hardcoded(directory))]
-    except ValueError as e:
-        errors.append(f"{hardcoded.FILE}: {e}")
+    errors += hardcoded.validate_file(directory)
     return errors

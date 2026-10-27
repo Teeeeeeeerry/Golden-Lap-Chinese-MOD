@@ -84,6 +84,7 @@ def inject_cjk_fallback(env) -> None:
 
 
 def add_cjk_fallback(bundle: bytes) -> bytes:
+    """inject_cjk_fallback 的字节进出版本。"""
     env = UnityPy.load(bundle)
     inject_cjk_fallback(env)
     return env.file.save(packer=PACKER)

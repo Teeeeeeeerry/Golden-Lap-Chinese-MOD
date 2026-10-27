@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from glzh import translations
+from glzh.hardcoded import is_injected
 
 REPORT_ID_LIMIT = 10  # 报告中每类最多列出的 m_Id 个数
 
@@ -44,10 +45,9 @@ def diff_table(current: dict[str, str], items: dict[str, dict], untranslatable: 
 
 def diff_against_english(english: dict[str, dict[int, str]], translations_dir: Path) -> dict[str, TableDiff]:
     """以玩家本地英文字符串表为准，比对仓库三张表的译文。"""
-    from glzh.hardcoded import is_injected  # 安装后英文包里会多出注入的条目，不属于游戏原文
-
     out = {}
     for table in translations.TABLES:
+        # 安装后英文包里会多出注入的写死文本条目，不属于游戏原文
         source = {m_id: text for m_id, text in english.get(table, {}).items() if not is_injected(m_id)}
         current = {str(m_id): translations.en_hash(text) for m_id, text in source.items()}
         empty = {str(m_id) for m_id, text in source.items() if not text}

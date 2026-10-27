@@ -112,6 +112,11 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
             stale.unlink()
 
     outputs = build(backup, translations_dir, deps=game)
+    # 上次写过、这次不再写的文件（如写死文本已找不到时的英文包）：若仍是上次写入的版本，换回原版，
+    # 否则它会留在游戏里却不在安装记录中，既无法还原，下次还会被当作原版备份
+    for rel, digest in patched.items():
+        if rel not in outputs and (game.data / rel).exists() and _sha256(game.data / rel) == digest:
+            outputs[rel] = (backup_dir / rel).read_bytes()
     # 先记下将要写入的哈希再写游戏：中途中断时，已写入的文件与记录一致，不会被误当作原版备份
     patched = {rel: hashlib.sha256(data).hexdigest() for rel, data in outputs.items()}
     manifest_path.write_text(json.dumps(patched, indent=2))

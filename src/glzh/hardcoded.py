@@ -14,8 +14,9 @@ from pathlib import Path
 
 import UnityPy
 
-from glzh import translations
+from glzh import string_tables, translations
 from glzh.bundles import PACKER, mono_behaviours
+from glzh.game import GameFiles
 
 FILE = "Hardcoded.json"
 TABLE = "Menus"  # 新增条目所在的字符串表
@@ -30,6 +31,7 @@ def entry_id(key: str) -> int:
 
 
 def is_injected(m_id: int) -> bool:
+    """m_Id 是否为本项目注入的条目（安装后会出现在英文包里，不属于游戏原文）。"""
     return m_id >= INJECTED_FLOOR
 
 
@@ -38,9 +40,21 @@ def validate_hardcoded(items: dict) -> list[str]:
     for key, item in items.items():
         if not KEY.fullmatch(key):
             errors.append(f"{key}: 键必须是以小写字母开头、由小写字母、数字、下划线与 / 组成的语义键")
-        # 值的校验与字符串表相同：借一个数字键复用 validate_table，再换回语义键
-        errors += [f"{key}: {err.split(': ', 1)[1]}" for err in translations.validate_table({"0": item})]
+        errors += [f"{key}: {err}" for err in translations.validate_item(item)]
+    hashes = [item.get("en_hash") for item in items.values() if isinstance(item, dict)]
+    errors += [f"en_hash {h} 重复：同一原文只能对应一条译文" for h in sorted({h for h in hashes if hashes.count(h) > 1})]
     return errors
+
+
+def validate_file(directory: Path) -> list[str]:
+    """校验目录下的 Hardcoded.json（不存在视为空），错误信息以文件名为前缀。"""
+    try:
+        items = load_hardcoded(directory)
+    except ValueError as e:  # JSON 解析失败或重复键
+        return [f"{FILE}: {e}"]
+    if not isinstance(items, dict):
+        return [f"{FILE}: 顶层必须是对象"]
+    return [f"{FILE}: {err}" for err in validate_hardcoded(items)]
 
 
 def load_hardcoded(directory: Path) -> dict:
@@ -73,8 +87,9 @@ def localize_components(env, items: dict, guid: str) -> dict[str, str]:
     originals = {}
     for obj, tree in mono_behaviours(env):
         ref = tree.get("textLocalization")
-        if ref is None or ref["m_TableEntryReference"]["m_KeyId"] or ref["m_TableReference"]["m_TableCollectionName"]:
-            continue  # 不是文本组件，或已引用字符串表
+        entry = ref and ref["m_TableEntryReference"]
+        if ref is None or entry["m_KeyId"] or entry["m_Key"] or ref["m_TableReference"]["m_TableCollectionName"]:
+            continue  # 不是文本组件，或已按 id 或名称引用字符串表
         key = by_hash.get(translations.en_hash(tree["m_text"]))
         if key is None:
             continue
@@ -85,7 +100,7 @@ def localize_components(env, items: dict, guid: str) -> dict[str, str]:
     return originals
 
 
-def add_shared_entries(shared: bytes, keys) -> bytes:
+def add_shared_entries(shared: bytes, keys: set[str]) -> bytes:
     """在共享键表的 Menus 表中登记新增条目（已有则跳过）。"""
     env = UnityPy.load(shared)
     for obj, tree in mono_behaviours(env):
@@ -97,3 +112,25 @@ def add_shared_entries(shared: bytes, keys) -> bytes:
                 tree["m_Entries"].append({"m_Id": entry_id(key), "m_Key": f"glzh/{key}", "m_Metadata": {"m_Items": []}})
         obj.save_typetree(tree)
     return env.file.save(packer=PACKER)
+
+
+def relink(env, src: GameFiles, items: dict) -> tuple[dict[int, str], dict, list[str]]:
+    """在已加载的 ui 包中处理写死文本。
+
+    返回 (要并入土耳其语 Menus 表的 {m_Id: 译文}, 额外写回的 {路径: 内容}, 未找到组件的语义键)。
+    额外写回的是登记了新条目的共享键表包，以及英文行写原文的英文字符串表包。
+    """
+    if not items:
+        return {}, {}, []
+    shared = src.shared.read_bytes()
+    originals = localize_components(env, items, menus_guid(shared))
+    missing = sorted(items.keys() - originals.keys())
+    if not originals:
+        return {}, {}, missing
+    english_rows = {entry_id(key): text for key, text in originals.items()}
+    outputs = {
+        src.shared: add_shared_entries(shared, set(originals)),
+        # 其他语言缺这一行时回退英文，显示与原版一致
+        src.english: string_tables.patch_string_tables(src.english.read_bytes(), {TABLE: english_rows}),
+    }
+    return {entry_id(key): items[key]["zh"] for key in originals}, outputs, missing

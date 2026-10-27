@@ -81,3 +81,21 @@ def test_migration_finishes_after_being_interrupted(fake_game, originals, tmp_pa
     (backup / MANIFEST).write_text(json.dumps({rel.removeprefix(f"{AA}/"): d for rel, d in patched.items()}))
     assert install(fake_game, backup)
     assert all(sha(backup / rel) == digest for rel, digest in originals.items())
+
+
+def test_install_reverts_files_it_no_longer_writes(fake_game, originals, tmp_path):
+    """写死文本找不到时，英文包与共享键表包不再产出：上次改过的版本应换回原版并移出安装记录。"""
+    from glzh.hardcoded import save_hardcoded
+    from glzh.translations import DEFAULT_DIR, TABLES, load_table, save_table
+
+    backup, plain = tmp_path / "backup", tmp_path / "plain"
+    install(fake_game, backup)
+    plain.mkdir()
+    for table in TABLES:
+        save_table(plain, table, load_table(DEFAULT_DIR, table))
+    save_hardcoded(plain, {})
+    written = install(fake_game, backup, plain)
+    for rel in (f"{AA}/StandaloneOSX/localization-string-tables-english_assets_all.bundle", f"{AA}/StandaloneOSX/localization-assets-shared_assets_all.bundle"):
+        assert sha(fake_game.data / rel) == originals[rel]
+    restore(fake_game, backup)
+    assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
