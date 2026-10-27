@@ -77,11 +77,16 @@ def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
     return _missing(*_cjk_font(font_assets(UnityPy.load(bundle))), chars)
 
 
-def add_cjk_fallback(bundle: bytes) -> bytes:
-    """把中文字体追加到 ui 包内其余 TMP 字体的后备链末尾（已含则跳过）。"""
-    env = UnityPy.load(bundle)
+def inject_cjk_fallback(env) -> None:
+    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过）。"""
     fonts = font_assets(env)
     _append_fallback(fonts, _cjk_font(fonts)[0].path_id)
+
+
+def add_cjk_fallback(bundle: bytes) -> bytes:
+    """inject_cjk_fallback 的字节进出版本。"""
+    env = UnityPy.load(bundle)
+    inject_cjk_fallback(env)
     return env.file.save(packer=PACKER)
 
 

@@ -58,3 +58,13 @@ def test_diff_against_game_marks_nothing_for_matching_hashes(game, tmp_path):
     menus = diff_against_english(english, tmp_path)["Menus"]
     assert menus.changed == [] and menus.obsolete == [] and "248174071668736" not in menus.new
     assert len(menus.new) == len([t for t in english["Menus"].values() if t]) - 1
+
+
+def test_injected_hardcoded_entries_are_not_reported_as_untranslated(game, tmp_path):
+    from glzh.hardcoded import entry_id
+
+    english = read_tables(game.english.read_bytes())
+    english["Menus"][entry_id("main_menu/our_new_game")] = "our new game"  # 安装后英文包里多出的注入条目
+    for table in TABLES:
+        save_table(tmp_path, table, {})
+    assert str(entry_id("main_menu/our_new_game")) not in diff_against_english(english, tmp_path)["Menus"].new
