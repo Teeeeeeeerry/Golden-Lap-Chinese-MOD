@@ -10,8 +10,14 @@ LANGUAGE_NAME = "简体中文"
 LANGUAGE_CULTURE = "zh-CN"
 
 
-def build(src: GameFiles, translations_dir: Path = translations.DEFAULT_DIR) -> dict[str, bytes]:
-    """读取 src 中的原始文件，返回 {相对 aa 目录的路径: 新内容}。"""
+def build(
+    src: GameFiles, translations_dir: Path = translations.DEFAULT_DIR, deps: GameFiles | None = None
+) -> dict[str, bytes]:
+    """读取 src 中的原始文件，返回 {相对 Data 目录的路径: 新内容}。
+
+    deps 提供读取 resources.assets 所需的只读依赖（程序集与 globalgamemanagers.assets），
+    默认取 src 自身；从备份构建时传入真实游戏。
+    """
     english = string_tables.read_tables(src.english.read_bytes())
     turkish = string_tables.read_tables(src.turkish.read_bytes())
     data = {table: translations.load_table(translations_dir, table) for table in translations.TABLES}
@@ -21,17 +27,17 @@ def build(src: GameFiles, translations_dir: Path = translations.DEFAULT_DIR) -> 
     }
     # 只查译文：英文回退原文由原有字体显示，不靠中文字体
     ui = src.ui.read_bytes()
-    zh = (item["zh"] for table in data.values() for item in table.values())
-    missing = fonts.missing_glyphs(ui, fonts.required_chars(zh))
-    if missing:
-        raise ValueError(f"中文字体缺少这些字的字形：{''.join(sorted(missing))}")
+    chars = fonts.required_chars(item["zh"] for table in data.values() for item in table.values())
+    fonts.ensure_glyphs(fonts.missing_glyphs(ui, chars))
     outputs = {
         src.ui: fonts.add_cjk_fallback(ui),
+        src.resources: fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars),
         src.turkish: string_tables.patch_string_tables(src.turkish.read_bytes(), texts),
         src.locales: string_tables.rename_language_option(
             src.locales.read_bytes(), LANGUAGE_CODE, LANGUAGE_NAME, LANGUAGE_CULTURE
         ),
     }
-    patched = {path.name for path in outputs}
+    # 只有经 catalog 加载的 Addressables 包需要把 CRC 置 0；resources.assets 不在 catalog 中
+    patched = {path.name for path in outputs if path.parent == src.bundles}
     outputs[src.catalog] = catalog.disable_crc(src.catalog.read_text(encoding="utf-8"), patched).encode("utf-8")
-    return {path.relative_to(src.aa).as_posix(): data for path, data in outputs.items()}
+    return {path.relative_to(src.data).as_posix(): data for path, data in outputs.items()}

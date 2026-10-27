@@ -18,3 +18,5 @@ T1 最小验证（`docs/spike/t1-font-injection.md`）发现 `ui_assets_all` 包
 **Consequences:**
 - 中文全部为 Black 字重。界面主体用 Figtree Bold/Black，视觉上协调。
 - 中文显示依赖游戏继续自带这款字体；若某次更新移除它，构建会因找不到 `NotoSansSC-Black SDF` 而中止，需改回自带字体方案。
+
+**补充（#21）：** 游戏有两套独立的 TMP 字体。除 Addressables 的 `ui_assets_all` 包外，Resources 目录的 `resources.assets` 中也有一套，同样自带 `NotoSansSC-Black SDF`。经 Resources 加载的界面（如主菜单底部的反馈栏）用的是后一套，原版只有 `Figtree-Black SDF`、`Figtree-Bold SDF` 挂了中文后备。因此两处都按同样方式注入。`resources.assets` 没有内嵌类型信息，构建时用游戏 `Managed` 目录下的程序集现场生成 typetree（新增依赖 `TypeTreeGeneratorAPI`），并一并加载 `globalgamemanagers.assets` 以解析脚本引用；类型信息只在内存中使用，不落盘、不分发。`resources.assets` 不经 catalog 加载，无需改 CRC。

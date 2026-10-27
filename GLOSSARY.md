@@ -23,7 +23,7 @@ _Avoid_: Locale、语言包
 _Avoid_: StringTable、文本表
 
 **后备字体**:
-TMP 字体缺字时按顺序回退取字形的字体。中文显示依赖把游戏自带的 `NotoSansSC-Black SDF` 追加到各界面字体的后备链（见 ADR 0003）。
+TMP 字体缺字时按顺序回退取字形的字体。中文显示依赖把游戏自带的 `NotoSansSC-Black SDF` 追加到各界面字体的后备链，`ui_assets_all` 包与 `resources.assets` 两处各有一套界面字体，都要处理（见 ADR 0003）。
 _Avoid_: fallback、备用字体
 
 **官方 MOD**:
@@ -37,7 +37,7 @@ _Avoid_: 数据 MOD、工坊 MOD
 _Avoid_: 插件、hook、补丁器、mod 本体
 
 **构建**:
-由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包与 catalog 的过程，在玩家本地运行。
+由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包、`resources.assets` 与 catalog 的过程，在玩家本地运行。
 _Avoid_: 打包、编译
 
 **翻译条目**:

@@ -78,7 +78,7 @@ def cmd_install(args: list[str]) -> int:
     """python -m glzh install：备份原始文件并把汉化注入本地游戏，可重复运行。"""
     src = GameFiles.from_app(app_path())
     if not src.exists():
-        print(f"没有在 {src.aa} 找到 Golden Lap。请确认已在 Steam 中安装，或用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
+        print(f"没有在 {src.data} 找到 Golden Lap。请确认已在 Steam 中安装，或用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
         return 1
     print(f"游戏位置：{src.app}")
     print("译文覆盖情况（未翻译的条目显示英文）：")
@@ -99,7 +99,7 @@ def cmd_restore(args: list[str]) -> int:
     """python -m glzh restore：把游戏恢复到未汉化状态。"""
     src = GameFiles.from_app(app_path())
     if not src.catalog.exists():
-        print(f"没有在 {src.aa} 找到 Golden Lap。请用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
+        print(f"没有在 {src.data} 找到 Golden Lap。请用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
         return 1
     try:
         restored, skipped = install.restore(src)
