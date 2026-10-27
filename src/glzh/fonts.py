@@ -1,7 +1,7 @@
 """字体：让界面字体能显示中文。
 
 游戏自带思源黑体（NotoSansSC-Black，约 3 万字形）及其动态 TMP 字体 `NotoSansSC-Black SDF`，运行时按需生成字形。
-注入只需把它追加到同一文件内其余 TMP 字体的后备链末尾，不新增对象、不分发字体（见 ADR 0003）。
+注入只需把它追加到同一文件内其余 TMP 字体的后备链末尾，并开启它的多图集，不新增对象、不分发字体（见 ADR 0003）。
 
 需要处理两处，各有一套独立的 TMP 字体：
 - Addressables 的 `ui_assets_all` 包：自带类型信息；
@@ -72,15 +72,24 @@ def _append_fallback(fonts: list, cjk_id: int) -> None:
         obj.save_typetree(tree)
 
 
+def _enable_multi_atlas(cjk_obj, cjk: dict) -> None:
+    """单张 1024² 动态图集只装得下约 90 个中文字，写满后新字显示为方框；开启后 TMP 写满即加开新图集（见 ADR 0003）。"""
+    if not cjk["m_IsMultiAtlasTexturesEnabled"]:
+        cjk["m_IsMultiAtlasTexturesEnabled"] = 1
+        cjk_obj.save_typetree(cjk)
+
+
 def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
     """chars 中 ui 包内中文字体源文件未覆盖的字符。"""
     return _missing(*_cjk_font(font_assets(UnityPy.load(bundle))), chars)
 
 
 def inject_cjk_fallback(env) -> None:
-    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过）。"""
+    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过），并开启它的多图集。"""
     fonts = font_assets(env)
-    _append_fallback(fonts, _cjk_font(fonts)[0].path_id)
+    cjk_obj, cjk = _cjk_font(fonts)
+    _append_fallback(fonts, cjk_obj.path_id)
+    _enable_multi_atlas(cjk_obj, cjk)
 
 
 def add_cjk_fallback(bundle: bytes) -> bytes:
@@ -105,12 +114,13 @@ def load_serialized(data: bytes, deps: GameFiles):
 
 
 def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -> bytes:
-    """resources.assets：检查中文字体覆盖 chars 后，把它追加到其余 TMP 字体的后备链末尾。"""
+    """resources.assets：检查中文字体覆盖 chars 后，把它追加到其余 TMP 字体的后备链末尾，并开启它的多图集。"""
     serialized = load_serialized(data, deps)
     fonts = font_assets(serialized)
     cjk_obj, cjk = _cjk_font(fonts)
     ensure_glyphs(_missing(cjk_obj, cjk, chars))
     _append_fallback(fonts, cjk_obj.path_id)
+    _enable_multi_atlas(cjk_obj, cjk)
     return serialized.save()
 
 

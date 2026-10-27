@@ -2,6 +2,7 @@ import pytest
 
 from glzh.build import build
 from glzh.catalog import bundle_crcs
+from glzh.fonts import CJK_FONT_ASSET
 from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
@@ -81,6 +82,8 @@ def test_build_injects_cjk_fallback_into_resources_assets(game, outputs):
         original = [(r["m_FileID"], r["m_PathID"]) for r in before[path_id].pop("m_FallbackFontAssetTable")]
         if path_id != cjk_id:
             assert chain.count((0, cjk_id)) == 1 and chain[: len(original)] == original
+        else:
+            assert tree.pop("m_IsMultiAtlasTexturesEnabled") == 1 and before[path_id].pop("m_IsMultiAtlasTexturesEnabled") == 0
         assert tree == before[path_id]
     # 字体以外的对象逐字节不变
     raw_before, raw_after = serialized_raw(game.resources.read_bytes(), game), serialized_raw(outputs["resources.assets"], game)
@@ -130,3 +133,10 @@ def test_build_localizes_hardcoded_text_without_changing_other_languages(game, o
     assert english["Menus"][m_id] == "our new game"
     assert {t: {i: v for i, v in rows.items() if i != m_id} for t, rows in english.items()} == original_english
     assert read_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])["Menus"][m_id] == "我们的新游戏"
+
+
+def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
+    """单张 1024² 动态图集只装得下约 90 个中文字，写满后新字成方框；开启多图集后 TMP 会加开新图集。"""
+    for fonts in (fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
+        cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
+        assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
