@@ -48,17 +48,26 @@ def _cjk_font(fonts: list):
 
 
 def _missing(cjk_obj, cjk: dict, chars: set[str]) -> set[str]:
-    source_id = cjk["m_SourceFontFile"]["m_PathID"]
+    source_id = cjk["m_SourceFontFile"]["m_PathID"]  # 源字体与 TMP 字体在同一文件内（m_FileID 为 0）
     font = cjk_obj.assets_file.objects[source_id].read_typetree()
     cmap = TTFont(io.BytesIO(bytes(font["m_FontData"]))).getBestCmap()
     return {ch for ch in chars if ord(ch) not in cmap}
 
 
+def ensure_glyphs(missing: set[str]) -> None:
+    if missing:
+        raise ValueError(f"中文字体缺少这些字的字形：{''.join(sorted(missing))}")
+
+
+def _has_fallback(tree: dict, cjk_id: int) -> bool:
+    return any(ref["m_FileID"] == 0 and ref["m_PathID"] == cjk_id for ref in tree["m_FallbackFontAssetTable"])
+
+
 def _append_fallback(fonts: list, cjk_id: int) -> None:
     for obj, tree in fonts:
-        chain = tree["m_FallbackFontAssetTable"]
-        if obj.path_id == cjk_id or any(ref["m_FileID"] == 0 and ref["m_PathID"] == cjk_id for ref in chain):
+        if obj.path_id == cjk_id or _has_fallback(tree, cjk_id):
             continue
+        chain = tree["m_FallbackFontAssetTable"]
         chain.append({"m_FileID": 0, "m_PathID": cjk_id})
         obj.save_typetree(tree)
 
@@ -83,7 +92,7 @@ def load_serialized(data: bytes, deps: GameFiles):
     """
     env = UnityPy.Environment()
     env.load_file(deps.globalgamemanagers.read_bytes(), name=deps.globalgamemanagers.name, is_dependency=True)
-    serialized = env.load_file(data, name="resources.assets")
+    serialized = env.load_file(data, name=deps.resources.name)
     generator = TypeTreeGenerator(serialized.unity_version)
     generator.load_local_dll_folder(str(deps.managed))
     env.typetree_generator = generator
@@ -95,19 +104,18 @@ def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -
     serialized = load_serialized(data, deps)
     fonts = font_assets(serialized)
     cjk_obj, cjk = _cjk_font(fonts)
-    missing = _missing(cjk_obj, cjk, chars)
-    if missing:
-        raise ValueError(f"中文字体缺少这些字的字形：{''.join(sorted(missing))}")
+    ensure_glyphs(_missing(cjk_obj, cjk, chars))
     _append_fallback(fonts, cjk_obj.path_id)
     return serialized.save()
 
 
 def is_injected_serialized(data: bytes, deps: GameFiles) -> bool:
-    """resources.assets 是否已被注入：原版只有少数字体挂了中文后备，注入后全部都有。"""
+    """resources.assets 是否已被注入。
+
+    判据：原版只有 Figtree-Black/Bold 等少数字体挂了中文后备，注入后其余字体全部都有。
+    若将来原版本身就让所有字体都挂上中文后备，此判据会误报，需要改用别的标记。
+    """
     fonts = font_assets(load_serialized(data, deps))
     cjk_id = _cjk_font(fonts)[0].path_id
-    return all(
-        any(ref["m_FileID"] == 0 and ref["m_PathID"] == cjk_id for ref in tree["m_FallbackFontAssetTable"])
-        for obj, tree in fonts
-        if obj.path_id != cjk_id
-    )
+    others = [tree for obj, tree in fonts if obj.path_id != cjk_id]
+    return bool(others) and all(_has_fallback(tree, cjk_id) for tree in others)

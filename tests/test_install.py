@@ -71,3 +71,13 @@ def test_install_migrates_backup_from_v0_0_9_layout(fake_game, game, originals, 
     assert all(sha(backup / rel) == digest for rel, digest in originals.items())
     restore(fake_game, backup)
     assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
+
+
+def test_migration_finishes_after_being_interrupted(fake_game, originals, tmp_path):
+    """迁移中断在「文件已移动、安装记录仍是旧键」时，重跑也应完成。"""
+    backup = tmp_path / "backup"
+    install(fake_game, backup)
+    patched = json.loads((backup / MANIFEST).read_text())
+    (backup / MANIFEST).write_text(json.dumps({rel.removeprefix(f"{AA}/"): d for rel, d in patched.items()}))
+    assert install(fake_game, backup)
+    assert all(sha(backup / rel) == digest for rel, digest in originals.items())

@@ -37,7 +37,7 @@ _Avoid_: 数据 MOD、工坊 MOD
 _Avoid_: 插件、hook、补丁器、mod 本体
 
 **构建**:
-由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包与 catalog 的过程，在玩家本地运行。
+由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包、`resources.assets` 与 catalog 的过程，在玩家本地运行。
 _Avoid_: 打包、编译
 
 **翻译条目**:

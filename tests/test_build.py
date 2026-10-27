@@ -5,7 +5,7 @@ from glzh.catalog import bundle_crcs
 from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
-from tests.test_fonts import PRIVATE_USE, fonts_by_id, rename_serialized_font, serialized_fonts, serialized_raw
+from tests.test_fonts import PRIVATE_USE, fonts_by_id, edit_serialized_font, serialized_fonts, serialized_raw
 from tests.test_string_tables import mono_behaviours
 
 CAREER = 248174071668736
@@ -82,7 +82,14 @@ def test_build_injects_cjk_fallback_into_resources_assets(game, outputs):
 
 
 def test_build_refuses_when_resources_assets_lacks_cjk_font(fake_game, tmp_path):
-    rename_serialized_font(fake_game, "NotoSansSC-Black SDF", "Renamed SDF")
+    edit_serialized_font(fake_game, "NotoSansSC-Black SDF", m_Name="Renamed SDF")
     write_translations(tmp_path, "生涯")
     with pytest.raises(ValueError, match="思源黑体"):
+        build(fake_game, tmp_path)
+
+
+def test_build_refuses_when_resources_assets_cjk_font_is_not_dynamic(fake_game, tmp_path):
+    edit_serialized_font(fake_game, "NotoSansSC-Black SDF", m_AtlasPopulationMode=0)
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="动态字体"):
         build(fake_game, tmp_path)

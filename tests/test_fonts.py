@@ -48,9 +48,10 @@ def serialized_raw(data: bytes, game) -> dict[int, bytes]:
     return {obj.path_id: obj.get_raw_data() for obj in load_serialized(data, game).objects.values()}
 
 
-def rename_serialized_font(game, old: str, new: str) -> None:
+def edit_serialized_font(game, name: str, **fields) -> None:
+    """改写游戏副本 resources.assets 中某个 TMP 字体的字段。"""
     serialized = load_serialized(game.resources.read_bytes(), game)
-    obj, tree = next((o, t) for o, t in font_assets(serialized) if t["m_Name"] == old)
-    tree["m_Name"] = new
+    obj, tree = next((o, t) for o, t in font_assets(serialized) if t["m_Name"] == name)
+    tree.update(fields)
     obj.save_typetree(tree)
     game.resources.write_bytes(serialized.save())

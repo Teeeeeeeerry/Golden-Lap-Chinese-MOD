@@ -54,19 +54,26 @@ def _read_manifest(backup_dir: Path) -> dict[str, str]:
 
 
 def _migrate_aa_rooted_backup(backup_dir: Path) -> None:
-    """把 v0.0.9 及以前以 aa 目录为根的备份与安装记录，迁移成以 Data 目录为根。"""
-    old = [backup_dir / "catalog.json", backup_dir / "StandaloneOSX"]
-    if not any(path.exists() for path in old):
-        return
-    aa = backup_dir / AA_DIR
-    aa.mkdir(parents=True, exist_ok=True)
-    for path in old:
-        if path.exists():
-            os.replace(path, aa / path.name)
+    """把 v0.0.9 及以前以 aa 目录为根的备份与安装记录，迁移成以 Data 目录为根。
+
+    先改写安装记录、再逐个移动文件，两步都可重复执行：中途中断后重跑会接着完成。
+    """
+    def is_aa_rooted(rel: str) -> bool:
+        # 旧键形如 catalog.json、StandaloneOSX/…；新布局中 aa 之外的只有 resources.assets
+        return not rel.startswith(f"{AA_DIR}/") and rel != "resources.assets"
+
     patched = _read_manifest(backup_dir)
-    if patched:
-        migrated = {f"{AA_DIR}/{rel}" if not rel.startswith(f"{AA_DIR}/") else rel: d for rel, d in patched.items()}
+    if any(is_aa_rooted(rel) for rel in patched):
+        migrated = {f"{AA_DIR}/{rel}" if is_aa_rooted(rel) else rel: digest for rel, digest in patched.items()}
         (backup_dir / MANIFEST).write_text(json.dumps(migrated, indent=2))
+    old_files = [backup_dir / "catalog.json"] + sorted((backup_dir / "StandaloneOSX").glob("*"))
+    for path in old_files:
+        if path.is_file():
+            dst = backup_dir / AA_DIR / path.relative_to(backup_dir)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(path, dst)
+    if (backup_dir / "StandaloneOSX").is_dir() and not any((backup_dir / "StandaloneOSX").iterdir()):
+        (backup_dir / "StandaloneOSX").rmdir()
 
 
 def _write_atomic(path: Path, data: bytes) -> None:

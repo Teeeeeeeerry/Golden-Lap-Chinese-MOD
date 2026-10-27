@@ -28,9 +28,7 @@ def build(
     # 只查译文：英文回退原文由原有字体显示，不靠中文字体
     ui = src.ui.read_bytes()
     chars = fonts.required_chars(item["zh"] for table in data.values() for item in table.values())
-    missing = fonts.missing_glyphs(ui, chars)
-    if missing:
-        raise ValueError(f"中文字体缺少这些字的字形：{''.join(sorted(missing))}")
+    fonts.ensure_glyphs(fonts.missing_glyphs(ui, chars))
     outputs = {
         src.ui: fonts.add_cjk_fallback(ui),
         src.resources: fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars),
