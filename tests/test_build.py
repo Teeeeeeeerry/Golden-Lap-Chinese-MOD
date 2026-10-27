@@ -2,7 +2,8 @@ import pytest
 
 from glzh.build import build
 from glzh.catalog import bundle_crcs
-from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
+from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
+from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
 from tests.test_fonts import PRIVATE_USE, fonts_by_id, edit_serialized_font, serialized_fonts, serialized_raw
@@ -12,10 +13,14 @@ CAREER = 248174071668736
 AA = "StreamingAssets/aa"
 
 
+OUR_NEW_GAME = "main_menu/our_new_game"
+
+
 def write_translations(directory, zh):
     for table in TABLES:
         save_table(directory, table, {})
     save_table(directory, "Menus", {str(CAREER): {"en_hash": en_hash("Career"), "zh": zh, "status": "mt"}})
+    save_hardcoded(directory, {OUR_NEW_GAME: {"en_hash": en_hash("our new game"), "zh": "我们的新游戏", "status": "mt"}})
 
 
 @pytest.fixture(scope="module")
@@ -31,6 +36,8 @@ def test_build_outputs_keep_original_file_names(game, outputs):
         f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}",
         f"{AA}/StandaloneOSX/{LOCALES_BUNDLE}",
         f"{AA}/StandaloneOSX/{game.ui.name}",
+        f"{AA}/StandaloneOSX/{SHARED_BUNDLE}",
+        f"{AA}/StandaloneOSX/{ENGLISH_BUNDLE}",
         "resources.assets",
     }
 
@@ -52,7 +59,7 @@ def test_build_injects_cjk_fallback_and_zeroes_crc_of_patched_bundles(game, outp
         any((ref["m_FileID"], ref["m_PathID"]) == (0, cjk_id) for ref in t["m_FallbackFontAssetTable"]) for i, t in fonts.items() if i != cjk_id
     )
     crcs = bundle_crcs(outputs[f"{AA}/catalog.json"].decode("utf-8"))
-    patched = {TURKISH_BUNDLE, LOCALES_BUNDLE, game.ui.name}
+    patched = {TURKISH_BUNDLE, LOCALES_BUNDLE, game.ui.name, SHARED_BUNDLE, ENGLISH_BUNDLE}
     assert all(crcs[name] == 0 for name in patched)
     assert all(crc != 0 for name, crc in crcs.items() if name not in patched)
 
@@ -93,3 +100,33 @@ def test_build_refuses_when_resources_assets_cjk_font_is_not_dynamic(fake_game, 
     write_translations(tmp_path, "生涯")
     with pytest.raises(ValueError, match="动态字体"):
         build(fake_game, tmp_path)
+
+
+def text_components(data: bytes) -> dict[int, dict]:
+    """ui 包内带本地化引用字段的文本组件。"""
+    return {i: t for i, t in mono_behaviours(data).items() if "textLocalization" in t}
+
+
+def test_build_localizes_hardcoded_text_without_changing_other_languages(game, outputs):
+    """写死的「our new game」改为引用新增的 Menus 条目：英文行写原文，土耳其语行写中文。"""
+    m_id = entry_id(OUR_NEW_GAME)
+    before = text_components(game.ui.read_bytes())
+    after = text_components(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])
+    target = [i for i, t in before.items() if t["m_text"] == "our new game"]
+    assert len(target) == 1
+    ref = after[target[0]]["textLocalization"]
+    assert ref["m_TableReference"]["m_TableCollectionName"] == "GUID:b2f094414a933be4ca0323c14a8a1064"  # Menus
+    assert ref["m_TableEntryReference"]["m_KeyId"] == m_id
+    # 组件的其余字段与其他组件都不变
+    assert {k: v for k, v in after[target[0]].items() if k != "textLocalization"} == {
+        k: v for k, v in before[target[0]].items() if k != "textLocalization"
+    }
+    assert all(after[i] == t for i, t in before.items() if i != target[0])
+
+    shared = [t for t in mono_behaviours(outputs[f"{AA}/StandaloneOSX/{SHARED_BUNDLE}"]).values() if t.get("m_TableCollectionName") == "Menus"][0]
+    assert {"m_Id": m_id, "m_Key": f"glzh/{OUR_NEW_GAME}", "m_Metadata": {"m_Items": []}} in shared["m_Entries"]
+    english = read_tables(outputs[f"{AA}/StandaloneOSX/{ENGLISH_BUNDLE}"])
+    original_english = read_tables(game.english.read_bytes())
+    assert english["Menus"][m_id] == "our new game"
+    assert {t: {i: v for i, v in rows.items() if i != m_id} for t, rows in english.items()} == original_english
+    assert read_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])["Menus"][m_id] == "我们的新游戏"

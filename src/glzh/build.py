@@ -2,7 +2,10 @@
 
 from pathlib import Path
 
-from glzh import catalog, fonts, string_tables, translations
+import UnityPy
+
+from glzh import catalog, fonts, hardcoded, string_tables, translations
+from glzh.bundles import PACKER
 from glzh.game import GameFiles
 
 LANGUAGE_CODE = "tr"  # 被顶替的语言选项
@@ -25,12 +28,29 @@ def build(
         table: string_tables.localized_table(english[table], data[table], turkish.get(table, {}))
         for table in translations.TABLES
     }
+    hard = hardcoded.load_hardcoded(translations_dir)
     # 只查译文：英文回退原文由原有字体显示，不靠中文字体
     ui = src.ui.read_bytes()
-    chars = fonts.required_chars(item["zh"] for table in data.values() for item in table.values())
+    all_items = [item for table in data.values() for item in table.values()] + list(hard.values())
+    chars = fonts.required_chars(item["zh"] for item in all_items)
     fonts.ensure_glyphs(fonts.missing_glyphs(ui, chars))
-    outputs = {
-        src.ui: fonts.add_cjk_fallback(ui),
+
+    # ui 包很大，字体后备与写死文本在同一次加载中处理，只写回一次
+    env = UnityPy.load(ui)
+    fonts.inject_cjk_fallback(env)
+    outputs = {}
+    if hard:
+        originals = hardcoded.localize_components(env, hard, hardcoded.menus_guid(src.shared.read_bytes()))
+        if originals:
+            ids = {hardcoded.entry_id(key): key for key in originals}
+            texts[hardcoded.TABLE].update({m_id: hard[key]["zh"] for m_id, key in ids.items()})
+            outputs[src.shared] = hardcoded.add_shared_entries(src.shared.read_bytes(), originals)
+            # 英文行写组件原文：其他语言缺这一行时回退英文，显示与原版一致
+            outputs[src.english] = string_tables.patch_string_tables(
+                src.english.read_bytes(), {hardcoded.TABLE: {m_id: originals[key] for m_id, key in ids.items()}}
+            )
+    outputs |= {
+        src.ui: env.file.save(packer=PACKER),
         src.resources: fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars),
         src.turkish: string_tables.patch_string_tables(src.turkish.read_bytes(), texts),
         src.locales: string_tables.rename_language_option(

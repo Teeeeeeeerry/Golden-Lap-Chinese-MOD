@@ -91,4 +91,10 @@ def validate_dir(directory: Path = DEFAULT_DIR) -> list[str]:
             errors.append(f"{name}: 顶层必须是对象")
             continue
         errors += [f"{name}: {err}" for err in validate_table(data)]
+    from glzh import hardcoded  # 避免循环导入：hardcoded 复用本模块的校验
+
+    try:
+        errors += [f"{hardcoded.FILE}: {err}" for err in hardcoded.validate_hardcoded(hardcoded.load_hardcoded(directory))]
+    except ValueError as e:
+        errors.append(f"{hardcoded.FILE}: {e}")
     return errors

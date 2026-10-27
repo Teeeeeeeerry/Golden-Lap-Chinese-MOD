@@ -11,6 +11,7 @@ DEFAULT_APP = Path.home() / "Library/Application Support/Steam/steamapps/common/
 TURKISH_BUNDLE = "localization-string-tables-turkish_assets_all.bundle"
 ENGLISH_BUNDLE = "localization-string-tables-english_assets_all.bundle"
 LOCALES_BUNDLE = "localization-locales_assets_all.bundle"
+SHARED_BUNDLE = "localization-assets-shared_assets_all.bundle"  # 各字符串表的共享键
 UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"  # 文件名含内容哈希，随游戏版本变化
 AA_DIR = "StreamingAssets/aa"  # Addressables 目录，相对 Data 目录
 
@@ -76,6 +77,10 @@ class GameFiles:
         return self.bundles / LOCALES_BUNDLE
 
     @property
+    def shared(self) -> Path:
+        return self.bundles / SHARED_BUNDLE
+
+    @property
     def ui(self) -> Path:
         matches = sorted(self.bundles.glob(UI_BUNDLE_GLOB))
         if len(matches) != 1:
@@ -85,7 +90,7 @@ class GameFiles:
     @property
     def inputs(self) -> list[Path]:
         """构建需要读取的原始文件。"""
-        return [self.catalog, self.english, self.turkish, self.locales, self.ui, self.resources]
+        return [self.catalog, self.english, self.turkish, self.locales, self.shared, self.ui, self.resources]
 
     def exists(self) -> bool:
         """原始文件与只读依赖（程序集、globalgamemanagers.assets）都在。"""

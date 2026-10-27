@@ -44,9 +44,11 @@ def diff_table(current: dict[str, str], items: dict[str, dict], untranslatable: 
 
 def diff_against_english(english: dict[str, dict[int, str]], translations_dir: Path) -> dict[str, TableDiff]:
     """以玩家本地英文字符串表为准，比对仓库三张表的译文。"""
+    from glzh.hardcoded import is_injected  # 安装后英文包里会多出注入的条目，不属于游戏原文
+
     out = {}
     for table in translations.TABLES:
-        source = english.get(table, {})
+        source = {m_id: text for m_id, text in english.get(table, {}).items() if not is_injected(m_id)}
         current = {str(m_id): translations.en_hash(text) for m_id, text in source.items()}
         empty = {str(m_id) for m_id, text in source.items() if not text}
         out[table] = diff_table(current, translations.load_table(translations_dir, table), empty)
