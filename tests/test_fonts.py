@@ -36,6 +36,8 @@ def test_add_cjk_fallback_points_every_font_to_cjk_once(ui):
             assert chain.count((0, cjk_id)) == 1
             # 原有后备顺序不变，中文字体只追加在末尾
             assert chain[: len(original)] == [(r["m_FileID"], r["m_PathID"]) for r in original]
+        else:
+            assert tree.pop("m_IsMultiAtlasTexturesEnabled") == 1 and before[path_id].pop("m_IsMultiAtlasTexturesEnabled") == 0
         assert tree == before[path_id]
 
 
