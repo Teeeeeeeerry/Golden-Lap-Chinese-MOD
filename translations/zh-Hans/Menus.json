@@ -411,7 +411,7 @@
   },
   "96781687121321984": {
     "en_hash": "36c7cefd615397fd",
-    "zh": "（需第 {required_standing} 名或更好）",
+    "zh": "({required_standing:choose(1):第一名|第 {} 名或更好})",
     "status": "mt"
   },
   "97071889726627840": {
