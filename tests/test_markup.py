@@ -16,6 +16,11 @@ def test_plural_placeholder_is_compared_by_name():
     assert markup_errors(en, "接下来的 {weekends:plural:{} 个周末|{} 个周末}") == []
 
 
+def test_choose_placeholder_is_compared_by_name():
+    zh = "({required_standing:choose(1):第一名|第 {} 名或更好})"
+    assert markup_errors("({required_standing} or above)", zh) == []
+
+
 def test_ordinal_suffix_may_be_dropped():
     assert markup_errors("Driver finishes {position} {ordinalSuffix}.", "车手以第 {position} 名完赛。") == []
 
