@@ -109,3 +109,34 @@ def test_width_of_branching_placeholder_is_its_widest_branch(tmp_path):
     assert width_warnings_dir(english, tmp_path) == [
         "Menus.json: 1: 译文 24 列，英文 12 列：{n:plural:{} lap|{} laps} left → 剩余 {n:plural:{} 圈|{} 圈全部跑完的比赛}"
     ]
+
+
+def test_width_counts_chinese_quotes_and_ellipsis_as_full_width_and_stray_braces_as_text(tmp_path):
+    english = _width_dir(
+        tmp_path,
+        "Menus",
+        {
+            "1": ("Hello", "“你好”……", "mt"),
+            "2": ("Pit {", "进站 {还有一大段没有闭合的文字", "mt"),
+        },
+    )
+    assert width_warnings_dir(english, tmp_path) == [
+        "Menus.json: 1: 译文 12 列，英文 5 列：Hello → “你好”……",
+        "Menus.json: 2: 译文 30 列，英文 5 列：Pit { → 进站 {还有一大段没有闭合的文字",
+    ]
+
+
+def test_width_handles_colons_in_branches_and_literal_escapes(tmp_path):
+    english = _width_dir(
+        tmp_path,
+        "Race UI",
+        {
+            "1": ("{n:plural:Lap|Laps}", "{n:plural:圈数：{}|圈数：{}，已全部跑完}", "mt"),
+            # 英文的 • 显示为一个圆点，按 6 个字符算会让英文偏宽而漏报
+            "2": ("\\u2022 Box", "\\u2022 立即进站换胎", "mt"),
+        },
+    )
+    assert width_warnings_dir(english, tmp_path) == [
+        "Race UI.json: 1: 译文 20 列，英文 4 列：{n:plural:Lap|Laps} → {n:plural:圈数：{}|圈数：{}，已全部跑完}",
+        "Race UI.json: 2: 译文 14 列，英文 5 列：\\u2022 Box → \\u2022 立即进站换胎",
+    ]
