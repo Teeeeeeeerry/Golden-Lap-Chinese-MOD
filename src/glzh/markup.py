@@ -33,7 +33,7 @@ def markup_errors(english: str, zh: str) -> list[str]:
 
 
 def markup_errors_dir(english: dict[str, dict[int, str]], directory: Path = translations.DEFAULT_DIR) -> list[str]:
-    """三张表中每条译文与当前英文原文的标记差异，前缀为文件名与 m_Id。
+    """各表中每条译文与当前英文原文的标记差异，前缀为文件名与 m_Id。
 
     跳过英文已不存在的条目和 stale 条目：二者由更新比对报出，待复核时一并修正。
     """

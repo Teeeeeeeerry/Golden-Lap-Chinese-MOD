@@ -7,6 +7,7 @@ from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUN
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
+from tests.test_catalog import resolve
 from tests.test_fonts import PRIVATE_USE, fonts_by_id, edit_serialized_font, serialized_fonts, serialized_raw
 from tests.test_string_tables import mono_behaviours
 
@@ -15,12 +16,14 @@ AA = "StreamingAssets/aa"
 
 
 OUR_NEW_GAME = "main_menu/our_new_game"
+STANDINGS = 5518036515758080  # Race UI 表的「Standings」
 
 
 def write_translations(directory, zh):
     for table in TABLES:
         save_table(directory, table, {})
     save_table(directory, "Menus", {str(CAREER): {"en_hash": en_hash("Career"), "zh": zh, "status": "mt"}})
+    save_table(directory, "Race UI", {str(STANDINGS): {"en_hash": en_hash("Standings"), "zh": "排名", "status": "mt"}})
     save_hardcoded(directory, {OUR_NEW_GAME: {"en_hash": en_hash("our new game"), "zh": "我们的新游戏", "status": "mt"}})
 
 
@@ -47,8 +50,10 @@ def test_build_writes_translations_with_english_fallback(game, outputs):
     tables = read_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])
     english = read_tables(game.english.read_bytes())
     assert tables["Menus"][CAREER] == "生涯"
+    assert tables["Race UI"][STANDINGS] == "排名"
     # 未翻译的条目显示英文原文，而不是土耳其语
-    assert all(tables[t][i] == english[t][i] for t in TABLES for i in english[t] if i != CAREER)
+    translated = {("Menus", CAREER), ("Race UI", STANDINGS)}
+    assert all(tables[t][i] == english[t][i] for t in TABLES for i in english[t] if (t, i) not in translated)
     names = [t.get("m_LocaleName") for t in mono_behaviours(outputs[f"{AA}/StandaloneOSX/{LOCALES_BUNDLE}"]).values()]
     assert "简体中文" in names and "Turkish" not in names
 
@@ -140,3 +145,55 @@ def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
     for fonts in (fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
         cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
         assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
+
+
+def bundle_tables(data: bytes) -> dict[str, tuple[str, dict]]:
+    """资源包内的字符串表：表名 → (资源路径, typetree)。"""
+    import UnityPy
+
+    env = UnityPy.load(data)
+    bundle = next(o.read_typetree() for o in env.objects if o.type.name == "AssetBundle")
+    paths = {entry["asset"]["m_PathID"]: path for path, entry in bundle["m_Container"]}
+    return {t["m_Name"]: (paths.get(o.path_id), t) for o, t in ((o, o.read_typetree()) for o in env.objects if o.type.name == "MonoBehaviour")}
+
+
+def test_build_registers_race_ui_table_for_turkish(game, outputs):
+    """土耳其语包原本没有 Race UI 表：新建 Race UI_tr，并在 catalog 中照 Race UI_en 追加登记。"""
+    turkish = bundle_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])
+    english = bundle_tables(game.english.read_bytes())
+    path, table = turkish["Race UI_tr"]
+    assert path == "Assets/Localization/Race UI_tr.asset"
+    assert table["m_LocaleId"] == {"m_Code": "tr"}
+    assert table["m_SharedData"] == english["Race UI_en"][1]["m_SharedData"]  # 指向同一张 Race UI 共享键表
+
+    before = resolve(game.catalog.read_text(encoding="utf-8"))
+    after = resolve(outputs[f"{AA}/catalog.json"].decode("utf-8"))
+    assert all(after[key] == locations for key, locations in before.items() if key != "Locale-tr")
+    [race] = after["Race UI_tr"]
+    [like] = before["Race UI_en"]
+    [beside] = before["Menus_tr"]
+    assert race == {**like, "internal_id": path, "dependencies": beside["dependencies"]}
+    assert after["Locale-tr"] == before["Locale-tr"] + [race]  # 标签只在末尾追加
+    assert len(after) == len(before) + 2  # Race UI_tr 与资源 GUID 两个新键
+
+
+def test_build_refuses_when_english_bundle_lacks_race_ui(fake_game, tmp_path):
+    import UnityPy
+
+    from glzh.bundles import PACKER
+
+    env = UnityPy.load(fake_game.english.read_bytes())
+    obj, tree = next((o, o.read_typetree()) for o in env.objects if o.type.name == "MonoBehaviour" and o.read_typetree().get("m_Name") == "Race UI_en")
+    tree["m_Name"] = "Renamed_en"
+    obj.save_typetree(tree)
+    fake_game.english.write_bytes(env.file.save(packer=PACKER))
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="Race UI"):
+        build(fake_game, tmp_path)
+
+
+def test_build_refuses_when_catalog_already_has_race_ui_tr(fake_game, outputs, tmp_path):
+    fake_game.catalog.write_bytes(outputs[f"{AA}/catalog.json"])
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="Race UI_tr"):
+        build(fake_game, tmp_path)

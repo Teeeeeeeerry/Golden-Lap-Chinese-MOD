@@ -44,7 +44,7 @@ def diff_table(current: dict[str, str], items: dict[str, dict], untranslatable: 
 
 
 def diff_against_english(english: dict[str, dict[int, str]], translations_dir: Path) -> dict[str, TableDiff]:
-    """以玩家本地英文字符串表为准，比对仓库三张表的译文。"""
+    """以玩家本地英文字符串表为准，比对仓库各表的译文。"""
     out = {}
     for table in translations.TABLES:
         # 安装后英文包里会多出注入的写死文本条目，不属于游戏原文
