@@ -1,3 +1,7 @@
+import base64
+import json
+import struct
+
 import pytest
 
 from glzh.catalog import bundle_crcs, disable_crc
@@ -25,10 +29,6 @@ def test_disable_crc_rejects_unknown_bundle(game):
 
 def resolve(catalog_text: str) -> dict:
     """独立于实现读 catalog：键 → 它解析到的位置列表（内部 ID、提供者、类型、依赖包的内部 ID）。"""
-    import base64
-    import json
-    import struct
-
     catalog = json.loads(catalog_text)
     keys_blob = base64.b64decode(catalog["m_KeyDataString"])
     buckets_blob = base64.b64decode(catalog["m_BucketDataString"])

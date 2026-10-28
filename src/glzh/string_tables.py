@@ -72,8 +72,14 @@ def add_table(bundle: bytes, template: bytes, collection: str, code: str) -> tup
     if any(name == collection for _, _, name in _tables(env)):
         raise ValueError(f"包中已有 {collection} 表")
     sibling = next(obj for obj, _, _ in _tables(env))  # 同一个 StringTable 类型，借它的类型信息
+    externals = [[e.path for e in obj.assets_file.externals] for obj in (source, sibling)]
+    if externals[0] != externals[1]:
+        # 模板表引用共享键表用的是外部文件下标，两包的外部引用不同就会指错表
+        raise ValueError(f"模板包与目标包的外部引用不一致，无法照搬 {collection} 表")
     name = f"{collection}_{code}"
     path = source_path.replace(tree["m_Name"], name)  # Assets/Localization/Race UI_en.asset → …/Race UI_tr.asset
+    if path == source_path:
+        raise ValueError(f"无法从资源路径 {source_path} 推出 {name} 的路径")
     tree["m_Name"] = name
     tree["m_LocaleId"] = {"m_Code": code}
     obj = copy.copy(sibling)

@@ -150,5 +150,5 @@ def register_asset(catalog_text: str, *, address: str, internal_id: str, like: s
     catalog["m_KeyDataString"] = base64.b64encode(bytes(keys)).decode()
     catalog["m_BucketDataString"] = base64.b64encode(_encode_buckets(buckets)).decode()
     catalog["m_EntryDataString"] = base64.b64encode(bytes(entries)).decode()
-    # 与原文的书写方式一致（紧凑、不转义非 ASCII），未改动的部分逐字保留
+    # 整体重新序列化，写法与原文一致（紧凑、不转义非 ASCII）：原版 catalog 这样往返逐字不变
     return json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))

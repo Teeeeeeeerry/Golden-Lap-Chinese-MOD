@@ -1,6 +1,8 @@
 import pytest
+import UnityPy
 
 from glzh.build import build
+from glzh.bundles import PACKER
 from glzh.catalog import bundle_crcs
 from glzh.fonts import CJK_FONT_ASSET
 from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
@@ -149,8 +151,6 @@ def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
 
 def bundle_tables(data: bytes) -> dict[str, tuple[str, dict]]:
     """资源包内的字符串表：表名 → (资源路径, typetree)。"""
-    import UnityPy
-
     env = UnityPy.load(data)
     bundle = next(o.read_typetree() for o in env.objects if o.type.name == "AssetBundle")
     paths = {entry["asset"]["m_PathID"]: path for path, entry in bundle["m_Container"]}
@@ -178,10 +178,6 @@ def test_build_registers_race_ui_table_for_turkish(game, outputs):
 
 
 def test_build_refuses_when_english_bundle_lacks_race_ui(fake_game, tmp_path):
-    import UnityPy
-
-    from glzh.bundles import PACKER
-
     env = UnityPy.load(fake_game.english.read_bytes())
     obj, tree = next((o, o.read_typetree()) for o in env.objects if o.type.name == "MonoBehaviour" and o.read_typetree().get("m_Name") == "Race UI_en")
     tree["m_Name"] = "Renamed_en"

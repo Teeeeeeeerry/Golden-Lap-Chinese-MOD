@@ -23,7 +23,7 @@ _Avoid_: Locale、语言包
 _Avoid_: 硬编码字符串
 
 **字符串表**:
-一种语言的一组翻译条目，按用途分为 Content、Menus、Events 三张表，打包进该语言的本地化资源包。
+一种语言的一组翻译条目，按用途分为 Content、Menus、Events、Race UI 四张表，打包进该语言的本地化资源包。土耳其语原本没有 Race UI 表，汉化时新建并在 catalog 中登记（见 ADR 0005）。
 _Avoid_: StringTable、文本表
 
 **后备字体**:

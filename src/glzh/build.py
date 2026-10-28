@@ -62,7 +62,7 @@ def build(
     # 只有经 catalog 加载的 Addressables 包需要把 CRC 置 0；resources.assets 不在 catalog 中
     patched = {path.name for path in outputs if path.parent == src.bundles}
     catalog_text = src.catalog.read_text(encoding="utf-8")
-    beside = f"{next(iter(turkish))}_{LANGUAGE_CODE}"  # 土耳其语包里原有的一张表，用来确定新表所在的包
+    beside = f"Menus_{LANGUAGE_CODE}"  # 土耳其语包里原有的表，新表与它同包
     for table, path in added.items():
         catalog_text = catalog.register_asset(
             catalog_text,
