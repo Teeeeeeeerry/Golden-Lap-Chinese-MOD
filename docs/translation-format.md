@@ -1,6 +1,6 @@
 # 译文数据格式
 
-译文按字符串表分三份 JSON 存于 `translations/zh-Hans/`：`Content.json`、`Menus.json`、`Events.json`。
+译文按字符串表分四份 JSON 存于 `translations/zh-Hans/`：`Content.json`、`Menus.json`、`Events.json`、`Race UI.json`。
 
 每份是一个对象，键为翻译条目的 `m_Id`（数字，写成字符串），值为：
 
@@ -24,7 +24,7 @@
 
 文件按 `m_Id` 数值升序写出，便于审阅差异。校验：`python -m glzh validate`；本机装有游戏时还会核对每条译文的占位符、富文本标签、字面转义（如 `\n`、`\u2022`）和换行数是否与英文原文一致（英文序数词后缀 `{ordinalSuffix}` 中文可省略）。
 
-首版译文为 LLM 机翻初稿，全部为 `mt`，待逐条校对后改为 `ok`。英文原文为空的条目无需翻译；土耳其语包有 20 行英文包没有的空行，构建时写为空串，也不需要翻译。因此三张表共 654 条需要翻译（Content 228、Menus 336、Events 90）。英文包另有的 Race UI 表不在土耳其语包中，不翻译（见 ADR 0001）。
+首版译文为 LLM 机翻初稿，全部为 `mt`，待逐条校对后改为 `ok`。英文原文为空的条目无需翻译；土耳其语包有 20 行英文包没有的空行，构建时写为空串，也不需要翻译。因此四张表共 780 条需要翻译（Content 228、Menus 336、Events 90、Race UI 126）。Race UI 表（比赛界面文本）原本不在土耳其语包中，构建时新建并在 catalog 中登记（见 ADR 0005）。
 
 ## 游戏更新后
 
