@@ -19,14 +19,22 @@ def main(argv: list[str]) -> int:
 
 
 def cmd_validate(args: list[str]) -> int:
-    """校验译文格式；本机装有游戏时，再核对占位符、标签等标记与英文原文一致。"""
-    errors = translations.validate_dir()
+    """校验译文格式；本机装有游戏时，再核对占位符、标签等标记与英文原文一致，并列出明显比英文宽的译文。"""
+    errors, warnings = translations.validate_dir(), []
     src = GameFiles.from_app(app_path())
     if not errors and src.exists():
-        errors = markup.markup_errors_dir(string_tables.read_tables(src.english.read_bytes()))
+        english = string_tables.read_tables(src.english.read_bytes())
+        errors = markup.markup_errors_dir(english)
+        warnings = markup.width_warnings_dir(english)
     for err in errors:
         print(err)
     print("译文校验通过" if not errors else f"共 {len(errors)} 处错误")
+    if warnings:
+        # 只是提示：宽度是估算，放不放得下要进游戏看
+        print("\n以下译文明显比英文宽，可能超出界面的框，请进游戏检查：")
+        for w in warnings:
+            print(w)
+        print(f"共 {len(warnings)} 条宽度提示（不影响校验结果）")
     return 1 if errors else 0
 
 
