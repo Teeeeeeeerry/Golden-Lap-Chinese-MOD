@@ -1,4 +1,4 @@
-"""译文数据：三张字符串表各一份 JSON，以 m_Id 字符串为键。
+"""译文数据：每张字符串表一份 JSON，以 m_Id 字符串为键。
 
 每条翻译条目的值：
     en_hash  英文原文的哈希（不存原文本身）
@@ -11,7 +11,7 @@ import json
 import re
 from pathlib import Path
 
-TABLES = ("Content", "Menus", "Events")
+TABLES = ("Content", "Menus", "Events", "Race UI")  # Race UI 土耳其语包原本没有，构建时新建（见 ADR 0005）
 STATUSES = ("mt", "ok", "stale")
 FIELDS = ("en_hash", "zh", "status")
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "translations" / "zh-Hans"
@@ -81,7 +81,7 @@ def save_table(directory: Path, table: str, data: dict) -> None:
 
 
 def validate_dir(directory: Path = DEFAULT_DIR) -> list[str]:
-    """校验目录下三份译文 JSON，错误信息以文件名为前缀。"""
+    """校验目录下各表的译文 JSON，错误信息以文件名为前缀。"""
     errors = []
     for table in TABLES:
         name = table_path(directory, table).name

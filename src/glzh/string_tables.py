@@ -1,5 +1,8 @@
 """字符串表与语言选项：读取英文原文、把译文写回土耳其语字符串表包、改语言选项显示名。"""
 
+import copy
+import hashlib
+
 import UnityPy
 
 from glzh.bundles import PACKER, mono_behaviours
@@ -44,6 +47,56 @@ def patch_string_tables(bundle: bytes, texts: dict[str, dict[int, str]]) -> byte
             tree["m_TableData"].append({"m_Id": m_id, "m_Localized": text, "m_Metadata": {"m_Items": []}})
         obj.save_typetree(tree)
     return env.file.save(packer=PACKER)
+
+
+def _new_path_id(name: str) -> int:
+    """新增对象的 path_id：由名字哈希得到，稳定可复现。"""
+    return int.from_bytes(hashlib.sha256(f"glzh:{name}".encode()).digest()[:8], "big", signed=True)
+
+
+def add_table(bundle: bytes, template: bytes, collection: str, code: str) -> tuple[bytes, str]:
+    """以 template 包（如英文包）中 collection 表为模板，在 bundle 中新建语言代码为 code 的同名表，返回新包与新表的资源路径。
+
+    两种语言的字符串表包结构相同（同一个 StringTable 脚本、同样以共享键表包为外部引用），
+    模板表里的引用在新包中照样有效。新表的行沿用模板，由 patch_string_tables 改写。
+    """
+    template_env = UnityPy.load(template)
+    found = [(o, t) for o, t, name in _tables(template_env) if name == collection]
+    if len(found) != 1:
+        raise ValueError(f"模板包中应恰好有一张 {collection} 表，实际 {len(found)} 张")
+    source, tree = found[0]
+    template_bundle = next(o.read_typetree() for o in template_env.objects if o.type.name == "AssetBundle")
+    source_path = next(path for path, entry in template_bundle["m_Container"] if entry["asset"]["m_PathID"] == source.path_id)
+
+    env = UnityPy.load(bundle)
+    if any(name == collection for _, _, name in _tables(env)):
+        raise ValueError(f"包中已有 {collection} 表")
+    sibling = next(obj for obj, _, _ in _tables(env))  # 同一个 StringTable 类型，借它的类型信息
+    externals = [[e.path for e in obj.assets_file.externals] for obj in (source, sibling)]
+    if externals[0] != externals[1]:
+        # 模板表引用共享键表用的是外部文件下标，两包的外部引用不同就会指错表
+        raise ValueError(f"模板包与目标包的外部引用不一致，无法照搬 {collection} 表")
+    name = f"{collection}_{code}"
+    path = source_path.replace(tree["m_Name"], name)  # Assets/Localization/Race UI_en.asset → …/Race UI_tr.asset
+    if path == source_path:
+        raise ValueError(f"无法从资源路径 {source_path} 推出 {name} 的路径")
+    tree["m_Name"] = name
+    tree["m_LocaleId"] = {"m_Code": code}
+    obj = copy.copy(sibling)
+    obj.path_id = _new_path_id(name)
+    obj.save_typetree(tree)
+    sibling.assets_file.objects[obj.path_id] = obj
+
+    holder = next(o for o in env.objects if o.type.name == "AssetBundle")
+    meta = holder.read_typetree()
+    preload = meta["m_PreloadTable"]
+    # 与模板一致：脚本、表本身、共享键表
+    deps = [tree["m_Script"], {"m_FileID": 0, "m_PathID": obj.path_id}, tree["m_SharedData"]]
+    meta["m_Container"].append((path, {"preloadIndex": len(preload), "preloadSize": len(deps), "asset": {"m_FileID": 0, "m_PathID": obj.path_id}}))
+    meta["m_Container"].sort(key=lambda item: item[0])
+    preload.extend(deps)
+    holder.save_typetree(meta)
+    return env.file.save(packer=PACKER), path
 
 
 def rename_language_option(bundle: bytes, code: str, display_name: str, culture: str) -> bytes:

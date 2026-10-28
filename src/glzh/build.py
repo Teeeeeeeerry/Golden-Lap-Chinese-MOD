@@ -21,8 +21,16 @@ def build(
     deps 提供读取 resources.assets 所需的只读依赖（程序集与 globalgamemanagers.assets），
     默认取 src 自身；从备份构建时传入真实游戏。
     """
-    english = string_tables.read_tables(src.english.read_bytes())
-    turkish = string_tables.read_tables(src.turkish.read_bytes())
+    english_bundle, turkish_bundle = src.english.read_bytes(), src.turkish.read_bytes()
+    english = string_tables.read_tables(english_bundle)
+    turkish = string_tables.read_tables(turkish_bundle)
+    if missing := [table for table in translations.TABLES if table not in english]:
+        raise ValueError(f"英文包中没有这些字符串表：{', '.join(missing)}；游戏可能更换了表结构")
+    # 土耳其语包原本没有的表（Race UI）：照英文包新建，稍后在 catalog 中追加登记（见 ADR 0005）
+    added = {}
+    for table in translations.TABLES:
+        if table not in turkish:
+            turkish_bundle, added[table] = string_tables.add_table(turkish_bundle, english_bundle, table, LANGUAGE_CODE)
     data = {table: translations.load_table(translations_dir, table) for table in translations.TABLES}
     texts = {
         table: string_tables.localized_table(english[table], data[table], turkish.get(table, {}))
@@ -46,12 +54,23 @@ def build(
     outputs |= {
         src.ui: env.file.save(packer=PACKER),
         src.resources: fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars),
-        src.turkish: string_tables.patch_string_tables(src.turkish.read_bytes(), texts),
+        src.turkish: string_tables.patch_string_tables(turkish_bundle, texts),
         src.locales: string_tables.rename_language_option(
             src.locales.read_bytes(), LANGUAGE_CODE, LANGUAGE_NAME, LANGUAGE_CULTURE
         ),
     }
     # 只有经 catalog 加载的 Addressables 包需要把 CRC 置 0；resources.assets 不在 catalog 中
     patched = {path.name for path in outputs if path.parent == src.bundles}
-    outputs[src.catalog] = catalog.disable_crc(src.catalog.read_text(encoding="utf-8"), patched).encode("utf-8")
+    catalog_text = src.catalog.read_text(encoding="utf-8")
+    beside = f"Menus_{LANGUAGE_CODE}"  # 土耳其语包里原有的表，新表与它同包
+    for table, path in added.items():
+        catalog_text = catalog.register_asset(
+            catalog_text,
+            address=f"{table}_{LANGUAGE_CODE}",
+            internal_id=path,
+            like=f"{table}_en",
+            beside=beside,
+            labels=(f"Locale-{LANGUAGE_CODE}",),
+        )
+    outputs[src.catalog] = catalog.disable_crc(catalog_text, patched).encode("utf-8")
     return {path.relative_to(src.data).as_posix(): data for path, data in outputs.items()}
