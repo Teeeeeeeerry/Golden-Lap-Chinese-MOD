@@ -98,6 +98,13 @@ def _align_line_metrics(fonts: list, cjk_obj, cjk: dict) -> None:
     cjk_obj.save_typetree(cjk)
 
 
+def _patch_cjk(fonts: list, cjk_obj, cjk: dict) -> None:
+    """两套字体共用的注入步骤：追加后备、开启多图集、对齐行度量。"""
+    _append_fallback(fonts, cjk_obj.path_id)
+    _enable_multi_atlas(cjk_obj, cjk)
+    _align_line_metrics(fonts, cjk_obj, cjk)
+
+
 def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
     """chars 中 ui 包内中文字体源文件未覆盖的字符。"""
     return _missing(*_cjk_font(font_assets(UnityPy.load(bundle))), chars)
@@ -107,9 +114,7 @@ def inject_cjk_fallback(env) -> None:
     """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过），开启它的多图集并对齐行度量。"""
     fonts = font_assets(env)
     cjk_obj, cjk = _cjk_font(fonts)
-    _append_fallback(fonts, cjk_obj.path_id)
-    _enable_multi_atlas(cjk_obj, cjk)
-    _align_line_metrics(fonts, cjk_obj, cjk)
+    _patch_cjk(fonts, cjk_obj, cjk)
 
 
 def add_cjk_fallback(bundle: bytes) -> bytes:
@@ -139,9 +144,7 @@ def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -
     fonts = font_assets(serialized)
     cjk_obj, cjk = _cjk_font(fonts)
     ensure_glyphs(_missing(cjk_obj, cjk, chars))
-    _append_fallback(fonts, cjk_obj.path_id)
-    _enable_multi_atlas(cjk_obj, cjk)
-    _align_line_metrics(fonts, cjk_obj, cjk)
+    _patch_cjk(fonts, cjk_obj, cjk)
     return serialized.save()
 
 

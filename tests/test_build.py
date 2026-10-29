@@ -4,7 +4,7 @@ import UnityPy
 from glzh.build import build
 from glzh.bundles import PACKER
 from glzh.catalog import bundle_crcs
-from glzh.fonts import CJK_FONT_ASSET
+from glzh.fonts import CJK_FONT_ASSET, LINE_METRICS, font_assets
 from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
@@ -150,9 +150,6 @@ def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
         assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
 
 
-LINE_METRICS = ("m_AscentLine", "m_DescentLine", "m_LineHeight")
-
-
 def test_build_aligns_cjk_line_metrics_with_figtree(game, outputs):
     """思源黑体上沿 1.16em、Figtree 0.95em：一行里有中文，TMP 取最大上沿，基线下移，与旁边纯数字的文本框对不齐。"""
     pairs = (
@@ -162,9 +159,10 @@ def test_build_aligns_cjk_line_metrics_with_figtree(game, outputs):
     for before, after in pairs:
         cjk_id = next(i for i, t in after.items() if t["m_Name"] == CJK_FONT_ASSET)
         face = after[cjk_id]["m_FaceInfo"]
-        size = face["m_PointSize"]
-        # 原版 Figtree 各字重：上沿 0.95、下沿 -0.25、行高 1.2（以采样字号为单位）
-        assert (face["m_AscentLine"] / size, face["m_DescentLine"] / size, face["m_LineHeight"] / size) == pytest.approx((0.95, -0.25, 1.2))
+        figtree = next(t["m_FaceInfo"] for t in before.values() if t["m_Name"] == "Figtree-Bold SDF")
+        # 原版 Figtree 为上沿 0.95、下沿 -0.25、行高 1.2（以采样字号为单位）
+        for key in LINE_METRICS:
+            assert face[key] / face["m_PointSize"] == pytest.approx(figtree[key] / figtree["m_PointSize"]), key
         original = before[cjk_id]["m_FaceInfo"]
         assert {k: v for k, v in face.items() if k not in LINE_METRICS} == {k: v for k, v in original.items() if k not in LINE_METRICS}
         for key in ("m_GlyphTable", "m_CharacterTable", "m_AtlasWidth", "m_AtlasHeight"):
@@ -172,8 +170,19 @@ def test_build_aligns_cjk_line_metrics_with_figtree(game, outputs):
         assert all(after[i]["m_FaceInfo"] == t["m_FaceInfo"] for i, t in before.items() if i != cjk_id)
 
 
-def test_build_refuses_when_figtree_bold_is_missing(fake_game, tmp_path):
+def test_build_refuses_when_resources_assets_lacks_figtree_bold(fake_game, tmp_path):
     edit_serialized_font(fake_game, "Figtree-Bold SDF", m_Name="Renamed SDF")
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="Figtree-Bold SDF"):
+        build(fake_game, tmp_path)
+
+
+def test_build_refuses_when_ui_bundle_lacks_figtree_bold(fake_game, tmp_path):
+    env = UnityPy.load(fake_game.ui.read_bytes())
+    obj, tree = next((o, t) for o, t in font_assets(env) if t["m_Name"] == "Figtree-Bold SDF")
+    tree["m_Name"] = "Renamed SDF"
+    obj.save_typetree(tree)
+    fake_game.ui.write_bytes(env.file.save(packer=PACKER))
     write_translations(tmp_path, "生涯")
     with pytest.raises(ValueError, match="Figtree-Bold SDF"):
         build(fake_game, tmp_path)

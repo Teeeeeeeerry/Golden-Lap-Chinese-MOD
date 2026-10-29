@@ -4,7 +4,7 @@
 
 赛季总览的比赛奖金、赛季奖金两栏中，名次要求「(第一名)」比旁边的奖金数字「$8」低一截。奖金数字和名次要求是两个独立的文本框。中文字形来自后备字体 `NotoSansSC-Black SDF`，它的行度量是上沿 1.16em、下沿 -0.288em、行高 1.448em；界面主字体 Figtree 各字重都是上沿 0.95em、下沿 -0.25em、行高 1.2em（以采样字号为单位）。TMP 排一行时，取这一行里各字形所属字体的最大上沿，所以只要一行里有中文，上沿就会被撑高、基线下移，和旁边只有英文数字的文本框对不齐。中英文在同一个文本框里混排时，大家共用一条基线，看不出问题。
 
-决定：注入时把 `NotoSansSC-Black SDF` 的上沿（`m_AscentLine`）、下沿（`m_DescentLine`）、行高（`m_LineHeight`）改成与同一字体集合中 `Figtree-Bold SDF` 相同的比例，也就是 Figtree-Bold 的字段值除以它的采样字号，再乘以思源黑体自己的采样字号。ui 包和 `resources.assets` 两处都改，找不到 Figtree-Bold 时中止构建。采样字号、图集、字形与字符表、cap line、mean line 都不改。
+决定：注入时把 `NotoSansSC-Black SDF` 的上沿（`m_AscentLine`）、下沿（`m_DescentLine`）、行高（`m_LineHeight`）改成与同一字体集合中 `Figtree-Bold SDF` 相同的比例，也就是 Figtree-Bold 的字段值除以它的采样字号，再乘以思源黑体自己的采样字号。ui 包和 `resources.assets` 两处都改，找不到 Figtree-Bold 时中止构建。采样字号、图集、字形与字符表、cap line、mean line 都不改。TMP 的 Midline 对齐按文字网格的实际范围居中，不读字体的 mean line；cap line 和 mean line 只在少数排版计算里用到，按 ADR 0003「尽量少改」的原则保留原值。如果人工确认时发现某种对齐方式下中文仍然偏移，再评估要不要一并调整。
 
 理由：
 - 一处改动，所有含中文的文本框都按英文的版面排，不需要逐条给译文加 `<voffset>`。
