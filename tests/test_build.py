@@ -91,6 +91,7 @@ def test_build_injects_cjk_fallback_into_resources_assets(game, outputs):
             assert chain.count((0, cjk_id)) == 1 and chain[: len(original)] == original
         else:
             assert tree.pop("m_IsMultiAtlasTexturesEnabled") == 1 and before[path_id].pop("m_IsMultiAtlasTexturesEnabled") == 0
+            tree.pop("m_FaceInfo"), before[path_id].pop("m_FaceInfo")  # 行度量另有测试
         assert tree == before[path_id]
     # 字体以外的对象逐字节不变
     raw_before, raw_after = serialized_raw(game.resources.read_bytes(), game), serialized_raw(outputs["resources.assets"], game)
@@ -147,6 +148,35 @@ def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
     for fonts in (fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
         cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
         assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
+
+
+LINE_METRICS = ("m_AscentLine", "m_DescentLine", "m_LineHeight")
+
+
+def test_build_aligns_cjk_line_metrics_with_figtree(game, outputs):
+    """思源黑体上沿 1.16em、Figtree 0.95em：一行里有中文，TMP 取最大上沿，基线下移，与旁边纯数字的文本框对不齐。"""
+    pairs = (
+        (fonts_by_id(game.ui.read_bytes()), fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])),
+        (serialized_fonts(game.resources.read_bytes(), game), serialized_fonts(outputs["resources.assets"], game)),
+    )
+    for before, after in pairs:
+        cjk_id = next(i for i, t in after.items() if t["m_Name"] == CJK_FONT_ASSET)
+        face = after[cjk_id]["m_FaceInfo"]
+        size = face["m_PointSize"]
+        # 原版 Figtree 各字重：上沿 0.95、下沿 -0.25、行高 1.2（以采样字号为单位）
+        assert (face["m_AscentLine"] / size, face["m_DescentLine"] / size, face["m_LineHeight"] / size) == pytest.approx((0.95, -0.25, 1.2))
+        original = before[cjk_id]["m_FaceInfo"]
+        assert {k: v for k, v in face.items() if k not in LINE_METRICS} == {k: v for k, v in original.items() if k not in LINE_METRICS}
+        for key in ("m_GlyphTable", "m_CharacterTable", "m_AtlasWidth", "m_AtlasHeight"):
+            assert after[cjk_id][key] == before[cjk_id][key], key
+        assert all(after[i]["m_FaceInfo"] == t["m_FaceInfo"] for i, t in before.items() if i != cjk_id)
+
+
+def test_build_refuses_when_figtree_bold_is_missing(fake_game, tmp_path):
+    edit_serialized_font(fake_game, "Figtree-Bold SDF", m_Name="Renamed SDF")
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="Figtree-Bold SDF"):
+        build(fake_game, tmp_path)
 
 
 def bundle_tables(data: bytes) -> dict[str, tuple[str, dict]]:
