@@ -14,6 +14,18 @@ xattr -dr com.apple.quarantine "$DIR" 2>/dev/null || true
 # 发布包自带运行环境（ADR 0007）：不用系统 Python，不建虚拟环境，也不联网
 PY="$DIR/runtime/python/bin/python3.12"
 if [ -x "$PY" ]; then
+  # 内置 Python 分芯片架构；装错包时在运行它之前说清楚，免得报一堆看不懂的错误
+  # hw.optional.arm64 在 Apple 芯片上为 1，Rosetta 下也一样；Intel 上没有这一项
+  if [ "$(/usr/sbin/sysctl -n hw.optional.arm64 2>/dev/null)" = "1" ]; then CHIP=arm64 CHIP_NAME="Apple 芯片"; else CHIP=x86_64 CHIP_NAME="Intel 芯片"; fi
+  case "$(/usr/bin/file -b "$PY")" in
+    *"$CHIP"*) ;;
+    *)
+      echo "这个发布包不适用于你的 Mac（${CHIP_NAME}）。"
+      echo "请到项目主页的 Releases 页面下载文件名以 macos-${CHIP}.zip 结尾的发布包："
+      echo "https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest"
+      exit 1
+      ;;
+  esac
   # 不让玩家自己装的 Python 及其包混进来
   export PYTHONNOUSERSITE=1
   unset PYTHONHOME
