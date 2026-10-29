@@ -189,9 +189,13 @@ def test_one_line_command_installs_and_restores(packages, fake_game, originals, 
     result = one_line(dist, fake_game, home)
     assert result.returncode == 0, result.stdout + result.stderr
     assert shas(fake_game, originals)["resources.assets"] != originals["resources.assets"]
-    # 发布包解压到用户目录下按版本分的固定位置
+    # 发布包缓存在用户目录下按版本、芯片分的固定位置
     version = ROOT.removeprefix("GoldenLap-zh-Hans-v")
-    assert (home / f"Library/Application Support/GoldenLapZH/app/{version}/{ROOT}/install.command").exists()
+    installed = home / f"Library/Application Support/GoldenLapZH/app/{version}/{HOST}/{ROOT}"
+    assert (installed / "install.command").exists()
+
+    # 之前解压出的文件被改动过，也不会被直接运行：每次都从校验过的 zip 重新解压
+    (installed / "restore.command").write_text("exit 7\n")
 
     result = one_line(dist, fake_game, home, "restore")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -209,4 +213,4 @@ def test_one_line_command_refuses_a_tampered_package(packages, fake_game, origin
     assert result.returncode != 0
     assert "校验" in result.stdout + result.stderr
     assert shas(fake_game, originals) == originals
-    assert not (home / "Library/Application Support/GoldenLapZH/app").exists()
+    assert not list((home / "Library/Application Support/GoldenLapZH").rglob("*.zip"))

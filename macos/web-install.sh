@@ -29,25 +29,27 @@ SHA256_VAR="SHA256_${ARCH}"
 EXPECTED="${!SHA256_VAR}"
 ZIP="${ROOT}-macos-${ARCH}.zip"
 
-if [ ! -f "${DEST}/${ROOT}/${ACTION}.command" ]; then
-  TMP="$(mktemp -d)"
-  trap 'rm -rf "$TMP"' EXIT
+# 发布包按版本和芯片缓存在用户目录：每次运行都重新校验缓存的 zip 并重新解压，
+# 不会直接运行之前解压出来、可能已被改动的文件；从 Intel Mac 迁移到 Apple 芯片后也不会用错包
+CACHE="${DEST}/${ARCH}"
+mkdir -p "$CACHE"
+sha256() { /usr/bin/shasum -a 256 "$1" | /usr/bin/cut -d ' ' -f 1; }
+if [ ! -f "${CACHE}/${ZIP}" ] || [ "$(sha256 "${CACHE}/${ZIP}")" != "$EXPECTED" ]; then
   echo "正在下载 Golden Lap 简体中文汉化 v${VERSION}（${ARCH}，约 40 MB）……"
-  if ! /usr/bin/curl -fL --progress-bar -o "${TMP}/${ZIP}" "${BASE}/${ZIP}"; then
+  if ! /usr/bin/curl -fL --progress-bar -o "${CACHE}/${ZIP}.part" "${BASE}/${ZIP}"; then
+    rm -f "${CACHE}/${ZIP}.part"
     echo "下载失败，请检查网络后重试。游戏没有被改动。"
     exit 1
   fi
-  ACTUAL="$(/usr/bin/shasum -a 256 "${TMP}/${ZIP}" | cut -d ' ' -f 1)"
-  if [ "$ACTUAL" != "$EXPECTED" ]; then
+  if [ "$(sha256 "${CACHE}/${ZIP}.part")" != "$EXPECTED" ]; then
+    rm -f "${CACHE}/${ZIP}.part"
     echo "下载的文件校验不通过（sha256 不符），可能下载出错或被篡改。已停止，游戏没有被改动，请稍后重试。"
     exit 1
   fi
-  echo "校验通过，正在解压……"
-  /usr/bin/ditto -x -k "${TMP}/${ZIP}" "${TMP}/x"
-  mkdir -p "$DEST"
-  rm -rf "${DEST:?}/${ROOT}"
-  mv "${TMP}/x/${ROOT}" "${DEST}/${ROOT}"
-  rm -rf "$TMP"  # 下面 exec 换掉了本进程，EXIT trap 不会再执行，临时文件要先删
+  mv "${CACHE}/${ZIP}.part" "${CACHE}/${ZIP}"
 fi
+echo "校验通过，正在解压……"
+rm -rf "${CACHE:?}/${ROOT}"
+/usr/bin/ditto -x -k "${CACHE}/${ZIP}" "$CACHE"
 
-exec /bin/bash "${DEST}/${ROOT}/${ACTION}.command"
+exec /bin/bash "${CACHE}/${ROOT}/${ACTION}.command"

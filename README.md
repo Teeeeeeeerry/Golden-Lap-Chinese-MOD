@@ -18,7 +18,7 @@
 
 ## 卸载（还原）
 
-双击 `macos/restore.command`（发布包中为 `restore.command`），即可从备份恢复被改动的文件，游戏回到未汉化状态，语言选项中的土耳其语也会恢复。只还原仍是汉化版本的文件；已被游戏更新覆盖的文件本身就是原版，会跳过。若备份缺失，脚本不会改动游戏，并提示在 Steam 中“验证游戏文件完整性”恢复原版。确认不再需要后，可删除 `~/Library/Application Support/GoldenLapZH`。
+在终端运行 `/bin/bash -c "$(curl -fsSL https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest/download/install.sh)" glzh restore`，或双击 `macos/restore.command`（发布包中为 `restore.command`），即可从备份恢复被改动的文件，游戏回到未汉化状态，语言选项中的土耳其语也会恢复。只还原仍是汉化版本的文件；已被游戏更新覆盖的文件本身就是原版，会跳过。若备份缺失，脚本不会改动游戏，并提示在 Steam 中“验证游戏文件完整性”恢复原版。确认不再需要后，可删除 `~/Library/Application Support/GoldenLapZH`。
 
 ## 发布
 
