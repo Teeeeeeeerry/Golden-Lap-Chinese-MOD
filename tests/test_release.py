@@ -6,7 +6,7 @@ import zipfile
 
 import pytest
 
-from scripts.release import ARCHS, REPO, RUNTIME, build_release, build_releases, check_contents, check_runtime
+from scripts.release import ARCHS, INSTALLER, REPO, RUNTIME, build_release, build_releases, check_contents, check_runtime
 
 ROOT = f"GoldenLap-zh-Hans-v{(REPO / 'VERSION').read_text().strip()}"
 PY = f"{RUNTIME}/bin/python3.12"
@@ -160,3 +160,53 @@ def test_installer_refuses_package_for_the_other_chip(packages, fake_game, origi
         assert result.returncode != 0
         assert f"macos-{HOST}.zip" in result.stdout, result.stdout
     assert shas(fake_game, originals) == originals
+
+
+def test_release_builds_one_line_installer_pinned_to_its_packages(packages):
+    script = (packages[HOST].parent / INSTALLER).read_text()
+    assert f'VERSION="{ROOT.removeprefix("GoldenLap-zh-Hans-v")}"' in script
+    for arch, archive in packages.items():
+        assert hashlib.sha256(archive.read_bytes()).hexdigest() in script, arch
+    assert "@" not in "".join(line for line in script.splitlines() if not line.lstrip().startswith("#"))
+
+
+def one_line(dist, game, home, *args, base=None):
+    """像玩家一样运行一行命令：/bin/bash -c "$(curl -fsSL …/install.sh)"，下载地址换成本地目录。"""
+    env = {
+        "HOME": str(home),
+        "PATH": "/usr/bin:/bin",
+        "GOLDEN_LAP_APP": str(game.app),
+        "LANG": "zh_CN.UTF-8",
+        "GLZH_DOWNLOAD_BASE": base or dist.as_uri(),
+    }
+    script = (dist / INSTALLER).read_text()
+    return subprocess.run(["/bin/bash", "-c", script, "glzh", *args], env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
+
+
+def test_one_line_command_installs_and_restores(packages, fake_game, originals, tmp_path):
+    dist, home = packages[HOST].parent, tmp_path / "home"
+    home.mkdir()
+    result = one_line(dist, fake_game, home)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert shas(fake_game, originals)["resources.assets"] != originals["resources.assets"]
+    # 发布包解压到用户目录下按版本分的固定位置
+    version = ROOT.removeprefix("GoldenLap-zh-Hans-v")
+    assert (home / f"Library/Application Support/GoldenLapZH/app/{version}/{ROOT}/install.command").exists()
+
+    result = one_line(dist, fake_game, home, "restore")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert shas(fake_game, originals) == originals
+
+
+def test_one_line_command_refuses_a_tampered_package(packages, fake_game, originals, tmp_path):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / INSTALLER).write_bytes((packages[HOST].parent / INSTALLER).read_bytes())
+    (dist / packages[HOST].name).write_bytes(packages[HOST].read_bytes() + b"x")
+    home = tmp_path / "home"
+    home.mkdir()
+    result = one_line(dist, fake_game, home)
+    assert result.returncode != 0
+    assert "校验" in result.stdout + result.stderr
+    assert shas(fake_game, originals) == originals
+    assert not (home / "Library/Application Support/GoldenLapZH/app").exists()

@@ -5,6 +5,7 @@
 内置运行环境（独立 Python 加依赖）按锁定文件组装，玩家不用自己装 Python，安装时也不联网（ADR 0007）。
 """
 
+import hashlib
 import os
 import stat
 import subprocess
@@ -35,6 +36,7 @@ LAYOUT = [
     ("VERSION", "VERSION"),
     ("packaging/THIRD-PARTY.md", "runtime/THIRD-PARTY.md"),
 ]
+INSTALLER = "install.sh"  # 一行命令下载的安装脚本，与发布包一起上传到 Release
 ARCHS = ("arm64", "x86_64")  # Apple 芯片、Intel；运行环境分架构，每种芯片一个发布包
 RUNTIME = "runtime/python"
 # 白名单之内也拦住游戏资源和字体
@@ -105,13 +107,27 @@ def build_release(out_dir: Path, repo: Path = REPO, arch: str = "arm64", cache: 
 
 
 def build_releases(out_dir: Path, repo: Path = REPO, cache: Path = CACHE) -> dict[str, Path]:
-    """为每种芯片各生成一个发布包：架构 → zip 路径。"""
-    return {arch: build_release(out_dir, repo, arch, cache) for arch in ARCHS}
+    """为每种芯片各生成一个发布包（架构 → zip 路径），并生成一行命令用的安装脚本。"""
+    archives = {arch: build_release(out_dir, repo, arch, cache) for arch in ARCHS}
+    build_installer(out_dir, archives, repo)
+    return archives
+
+
+def build_installer(out_dir: Path, archives: dict[str, Path], repo: Path = REPO) -> Path:
+    """把版本号和各发布包的 sha256 写进安装脚本模板：玩家下载到的包必须正是这次构建出的那个。"""
+    script = (repo / "macos" / "web-install.sh").read_text().replace("@VERSION@", (repo / "VERSION").read_text().strip())
+    for arch, archive in archives.items():
+        script = script.replace(f"@SHA256_{arch}@", hashlib.sha256(archive.read_bytes()).hexdigest())
+    path = out_dir / INSTALLER
+    path.write_text(script)
+    return path
 
 
 def main(argv: list[str]) -> int:
-    for archive in build_releases(Path(argv[0]) if argv else REPO / "dist").values():
+    out_dir = Path(argv[0]) if argv else REPO / "dist"
+    for archive in build_releases(out_dir).values():
         print(archive)
+    print(out_dir / INSTALLER)
     return 0
 
 
