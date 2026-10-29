@@ -20,7 +20,7 @@
 .venv/bin/python scripts/release.py
 ```
 
-先校验译文，再在 `dist/` 生成发布包 `GoldenLap-zh-Hans-v<版本>.zip`（只收录 git 跟踪的文件），内含安装器、还原脚本、源码、译文与玩家说明（`docs/release-README.md`），不含任何游戏原始资源或字体（ADR 0002、0003）。把它上传到 GitHub Release 即可。创意工坊引流物品的文案与上传指引见 [workshop/](workshop/README.md)。
+先校验译文，再在 `dist/` 生成发布包 `GoldenLap-zh-Hans-v<版本>-macos-arm64.zip`。项目文件只收录 git 跟踪的：安装器、还原脚本、源码、译文与玩家说明（`docs/release-README.md`），不含任何游戏原始资源或字体（ADR 0002、0003）。包里还内置独立的 Python 运行环境，玩家不用自己装 Python（ADR 0007）；它按 `packaging/runtime.lock.json` 组装，第一次构建要联网下载，之后用 `~/Library/Caches/GoldenLapZH-build` 里的缓存。升级依赖时运行 `scripts/lock_runtime.py` 重新生成锁定文件。把它上传到 GitHub Release 即可。创意工坊引流物品的文案与上传指引见 [workshop/](workshop/README.md)。
 
 ## 开发
 

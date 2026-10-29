@@ -8,4 +8,4 @@ if [ ! -f "$ENV_SH" ]; then
   exit 1
 fi
 . "$ENV_SH"
-PYTHONPATH="$DIR/src" "$VENV/bin/python" -m glzh restore
+PYTHONPATH="$DIR/src" "$PY" -m glzh restore
