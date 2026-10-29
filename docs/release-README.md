@@ -6,17 +6,31 @@
 
 ## 安装
 
-发布包按芯片分两种，需要 macOS 11 或更新版本：
+需要 macOS 11 或更新版本。不用另外安装 Python：运行环境已经包含在汉化里。
+
+### 方法一：一行命令（推荐）
+
+打开「终端」（在「启动台」或「访达 → 应用程序 → 实用工具」里），把下面这一行粘贴进去，按回车：
+
+```
+/bin/bash -c "$(curl -fsSL https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest/download/install.sh)"
+```
+
+它会自动判断你的 Mac 是 Apple 芯片还是 Intel，下载对应的汉化、校验完整性，然后找到 Steam 中的 Golden Lap，备份原始文件并注入汉化。这种方式不会被 macOS 拦截。装好后启动游戏，进入设置 → 语言，选择「简体中文」。
+
+### 方法二：下载压缩包
+
+到项目主页的 Releases 页面，按芯片下载发布包：
 
 - 文件名以 `macos-arm64.zip` 结尾：Apple 芯片（M1、M2 等）的 Mac；
 - 文件名以 `macos-x86_64.zip` 结尾：Intel 芯片的 Mac。
 
-不确定的话，点屏幕左上角的苹果菜单 →「关于本机」，看「芯片」或「处理器」一栏。下错了也没关系，安装器会提示你该下哪一个。包里自带运行环境，不用另外安装 Python，安装时也不联网。
+不确定的话，点屏幕左上角的苹果菜单 →「关于本机」，看「芯片」或「处理器」一栏。下错了也没关系，安装器会提示你该下哪一个。
 
-1. 解压本压缩包，双击 `install.command`。
+1. 解压后双击 `install.command`。
    - 第一次打开会被 macOS 拦截（提示“无法验证开发者”）。请在访达中右键点 `install.command` → 打开 → 再点“打开”。
    - 也可以在终端运行 `xattr -dr com.apple.quarantine <解压后的文件夹>`，之后就能直接双击。
-2. 安装器会自动找到 Steam 中的 Golden Lap，备份原始文件并注入汉化。
+2. 安装器会自动找到 Steam 中的 Golden Lap，备份原始文件并注入汉化，全程不联网。
 3. 启动游戏，进入设置 → 语言，选择「简体中文」。
 
 安装器只在你的电脑上修改游戏文件，原始文件备份在 `~/Library/Application Support/GoldenLapZH/backup`。
@@ -29,21 +43,31 @@
 ~/Library/Application Support/Steam/steamapps/common/Golden Lap/goldenlap.app
 ```
 
-如果游戏装在其他 Steam 库（例如外接硬盘）里且没有被找到，可以在 Steam 中右键 Golden Lap → 管理 → 浏览本地文件，打开的文件夹里就有 `goldenlap.app`。把它的完整路径填进环境变量后，在终端运行安装器：
+如果游戏装在其他 Steam 库（例如外接硬盘）里且没有被找到，可以在 Steam 中右键 Golden Lap → 管理 → 浏览本地文件，打开的文件夹里就有 `goldenlap.app`。在命令前面加上它的完整路径即可：
 
 ```
-GOLDEN_LAP_APP="/完整路径/goldenlap.app" ./install.command
+GOLDEN_LAP_APP="/完整路径/goldenlap.app" /bin/bash -c "$(curl -fsSL https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest/download/install.sh)"
 ```
+
+用压缩包安装时，则在解压后的文件夹里运行 `GOLDEN_LAP_APP="/完整路径/goldenlap.app" ./install.command`。
 
 ## 游戏更新后
 
-游戏更新，或在 Steam 中“验证游戏文件的完整性”后，汉化会被覆盖、界面恢复为土耳其语。再双击一次 `install.command` 即可。安装器会先备份新版本的原始文件，再重新注入。
+游戏更新，或在 Steam 中“验证游戏文件的完整性”后，汉化会被覆盖，界面恢复为土耳其语。再运行一次上面的一行命令（或再双击一次 `install.command`）即可：安装器会先备份新版本的原始文件，再重新注入。一行命令总是安装最新版的汉化。
 
 ## 卸载
 
-双击 `restore.command`，游戏即恢复为未汉化状态，语言选项中的土耳其语也会恢复。确认不再需要后，可删除 `~/Library/Application Support/GoldenLapZH`。
+在终端运行：
+
+```
+/bin/bash -c "$(curl -fsSL https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest/download/install.sh)" glzh restore
+```
+
+或者双击压缩包里的 `restore.command`。游戏即恢复为未汉化状态，语言选项中的土耳其语也会恢复。确认不再需要后，可删除 `~/Library/Application Support/GoldenLapZH`。
 
 如果备份丢失，还原脚本不会改动游戏。此时可在 Steam 中右键 Golden Lap → 属性 → 已安装文件 → 验证游戏文件的完整性，恢复原版。
+
+**从旧版本升级**：v0.0.17 及更早的版本要求自己安装 Python，并在 `~/Library/Application Support/GoldenLapZH/venv` 下建了运行环境。新版不再用它，可以直接删掉这个 `venv` 文件夹（不要删同目录下的 `backup`）。之前为汉化安装的 Python 也可以卸载。
 
 ## 常见问题
 
