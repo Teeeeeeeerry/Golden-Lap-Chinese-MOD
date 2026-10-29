@@ -18,7 +18,7 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 from glzh import translations  # noqa: E402
-from scripts.runtime import CACHE, build_runtime  # noqa: E402
+from scripts.runtime import ALLOWED, CACHE, build_runtime  # noqa: E402
 
 PREFIX = "GoldenLap-zh-Hans"
 
@@ -36,51 +36,49 @@ LAYOUT = [
     ("packaging/THIRD-PARTY.md", "runtime/THIRD-PARTY.md"),
 ]
 RUNTIME = "runtime/python"
-# 运行环境来自锁定的第三方组件，不逐个列白名单，只拦住不该出现的东西
+# 白名单之内也拦住游戏资源和字体
 RUNTIME_FORBIDDEN = (".bundle", ".asset", ".resS", ".ttf", ".otf", ".ttc", "catalog.json")
 ALLOWED_SUFFIXES = {".command", ".sh", ".py", ".json", ".txt", ".md", ""}
 
 
-def _tracked(repo: Path, path: str) -> list[str]:
-    out = subprocess.run(["git", "ls-files", "--", path], cwd=repo, capture_output=True, text=True, check=True)
-    return out.stdout.splitlines()
+def _tracked(repo: Path, path: str) -> list[tuple[str, int]]:
+    """git 跟踪的文件及其在索引里的权限位；按索引取，不受本地 chmod 影响，构建可复现。"""
+    out = subprocess.run(["git", "ls-files", "-s", "--", path], cwd=repo, capture_output=True, text=True, check=True)
+    return [(line.split("\t", 1)[1], 0o755 if line.startswith("100755") else 0o644) for line in out.stdout.splitlines()]
 
 
-def release_files(repo: Path = REPO) -> list[tuple[Path, str]]:
-    """待收录的 (源文件, 包内路径)，按包内路径排序。"""
+def release_files(repo: Path = REPO) -> list[tuple[Path, str, int]]:
+    """待收录的 (源文件, 包内路径, 权限位)，按包内路径排序。"""
     files = []
     for src, dst in LAYOUT:
         tracked = _tracked(repo, src)
         if not tracked:
             raise FileNotFoundError(f"{src} 未被 git 跟踪，不能收录进发布包")
-        for rel in tracked:
-            files.append((repo / rel, dst + rel[len(src) :]))
+        for rel, mode in tracked:
+            files.append((repo / rel, dst + rel[len(src) :], mode))
     return sorted(files, key=lambda item: item[1])
 
 
-def check_contents(files: list[tuple[Path, str]]) -> None:
-    """发布包只允许脚本、源码、译文与文档。"""
-    for _, name in files:
+def check_contents(names: list[str]) -> None:
+    """发布包的项目文件只允许脚本、源码、译文与文档。"""
+    for name in names:
         if Path(name).suffix not in ALLOWED_SUFFIXES or Path(name).name.startswith("."):
             raise ValueError(f"发布包不应包含 {name}：只允许脚本、源码、译文与文档")
 
 
 def check_runtime(names: list[str]) -> None:
-    """运行环境里不应混入游戏资源或字体。"""
+    """运行环境只允许解释器、标准库、依赖与许可证，且不应混入游戏资源或字体。"""
     for name in names:
-        if name.endswith(RUNTIME_FORBIDDEN):
+        rel = name.removeprefix(f"{RUNTIME}/")
+        if not rel.startswith(ALLOWED) or name.endswith(RUNTIME_FORBIDDEN):
             raise ValueError(f"运行环境不应包含 {name}")
 
 
-def runtime_files(arch: str, dest: Path, cache: Path = CACHE) -> list[tuple[Path, str]]:
-    """在 dest 下组装运行环境，返回 (源文件, 包内路径)，按包内路径排序。"""
+def runtime_files(arch: str, dest: Path, cache: Path = CACHE) -> list[tuple[Path, str, int]]:
+    """在 dest 下组装运行环境，返回 (源文件, 包内路径, 权限位)，按包内路径排序；可执行位取自上游文件。"""
     root = build_runtime(arch, dest, cache)
-    return sorted(((p, f"{RUNTIME}/{p.relative_to(root).as_posix()}") for p in root.rglob("*") if p.is_file()), key=lambda item: item[1])
-
-
-def _mode(path: Path) -> int:
-    """保留可执行位，解压后脚本可直接双击、Python 可直接运行。"""
-    return 0o755 if os.stat(path).st_mode & 0o111 else 0o644
+    files = [(p, f"{RUNTIME}/{p.relative_to(root).as_posix()}", 0o755 if os.stat(p).st_mode & 0o111 else 0o644) for p in root.rglob("*") if p.is_file()]
+    return sorted(files, key=lambda item: item[1])
 
 
 def build_release(out_dir: Path, repo: Path = REPO, arch: str = "arm64", cache: Path = CACHE) -> Path:
@@ -89,17 +87,17 @@ def build_release(out_dir: Path, repo: Path = REPO, arch: str = "arm64", cache: 
     if errors:
         raise ValueError("译文校验不通过：\n" + "\n".join(errors))
     files = release_files(repo)
-    check_contents(files)
+    check_contents([name for _, name, _ in files])
     root = f"{PREFIX}-v{(repo / 'VERSION').read_text().strip()}"
     out_dir.mkdir(parents=True, exist_ok=True)
     archive = out_dir / f"{root}-macos-{arch}.zip"
     with tempfile.TemporaryDirectory() as tmp:
         runtime = runtime_files(arch, Path(tmp), cache)
-        check_runtime([name for _, name in runtime])
+        check_runtime([name for _, name, _ in runtime])
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
-            for src, name in files + runtime:
+            for src, name, mode in files + runtime:
                 info = zipfile.ZipInfo(f"{root}/{name}", date_time=(2026, 1, 1, 0, 0, 0))
-                info.external_attr = (stat.S_IFREG | _mode(src)) << 16
+                info.external_attr = (stat.S_IFREG | mode) << 16  # 保留可执行位，解压后脚本可直接双击、Python 可直接运行
                 info.compress_type = zipfile.ZIP_DEFLATED
                 zf.writestr(info, src.read_bytes())
     return archive

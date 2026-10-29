@@ -42,6 +42,7 @@ def test_release_contains_installer_restore_translations_readme_and_runtime(pack
         "runtime/THIRD-PARTY.md",
         PY,
         f"{RUNTIME}/lib/python3.12/LICENSE.txt",
+        f"{RUNTIME}/LICENSE.python-build-standalone.txt",
         f"{RUNTIME}/lib/python3.12/site-packages/UnityPy/__init__.py",
         f"{RUNTIME}/lib/python3.12/site-packages/tpk_ar/__init__.py",
     } <= names
@@ -66,13 +67,15 @@ def test_release_is_reproducible(package, tmp_path):
 
 
 @pytest.mark.parametrize("name", ["src/glzh/.DS_Store", "translations/x.bundle", "fonts/NotoSansSC.otf"])
-def test_check_contents_rejects_non_project_files(tmp_path, name):
+def test_check_contents_rejects_non_project_files(name):
     with pytest.raises(ValueError, match=name):
-        check_contents([(tmp_path / "f", name)])
+        check_contents([name])
 
 
-@pytest.mark.parametrize("name", [f"{RUNTIME}/lib/fonts/DejaVuSans.ttf", f"{RUNTIME}/catalog.json"])
-def test_check_runtime_rejects_fonts_and_game_files(name):
+@pytest.mark.parametrize(
+    "name", [f"{RUNTIME}/lib/python3.12/fonts/DejaVuSans.ttf", f"{RUNTIME}/lib/python3.12/catalog.json", f"{RUNTIME}/lib/tk9.0/tk.tcl", f"{RUNTIME}/share/x.1"]
+)
+def test_check_runtime_rejects_anything_outside_the_allowlist(name):
     with pytest.raises(ValueError, match=name):
         check_runtime([name])
 

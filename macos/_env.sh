@@ -14,7 +14,9 @@ xattr -dr com.apple.quarantine "$DIR" 2>/dev/null || true
 # 发布包自带运行环境（ADR 0007）：不用系统 Python，不建虚拟环境，也不联网
 PY="$DIR/runtime/python/bin/python3.12"
 if [ -x "$PY" ]; then
-  export PYTHONNOUSERSITE=1  # 不让玩家自己装的 Python 包混进来
+  # 不让玩家自己装的 Python 及其包混进来
+  export PYTHONNOUSERSITE=1
+  unset PYTHONHOME
 else
   # 在仓库里运行（没有内置运行环境）：依赖要求 Python 3.11 及以上；系统自带的 python3 往往是 3.9
   VENV="$HOME_DIR/venv"

@@ -11,7 +11,7 @@
 - 在仓库里直接运行脚本时（没有内置运行环境），仍按原方式查找系统 Python 并建虚拟环境，方便开发。
 - 解除隔离属性必须在第一次运行内置 Python 之前完成，否则 Gatekeeper 会逐个拦截其中的二进制文件。
 
-许可审查：解释器为 PSF 许可，其余依赖均为 MIT、BSD 或 MIT-CMU，许可证随包附上（见 `packaging/THIRD-PARTY.md`）。`fmod_toolkit` 内含商业授权的 FMOD 引擎二进制，不随包分发；UnityPy 只在导出音频时才导入它，汉化不处理音频，已验证去掉它后构建和安装都照常工作。
+许可审查：CPython 为 PSF 许可，python-build-standalone 构建项目为 MPL-2.0，其余依赖均为 MIT、BSD 或 MIT-CMU，许可证随包附上（见 `packaging/THIRD-PARTY.md`）。`fmod_toolkit` 内含商业授权的 FMOD 引擎二进制，不随包分发；UnityPy 只在导出音频时才导入它，汉化不处理音频，已验证去掉它后构建和安装都照常工作。
 
 **Considered Options:**
 - **第一次运行时自动下载独立 Python 和依赖**（否决）：发布包虽小，但仍要联网，还多依赖一个外部下载源。
@@ -19,6 +19,6 @@
 - **Apple 开发者签名并公证**（否决）：需要付费开发者账号；双击时的拦截改由一行安装命令绕开（见 #43）。
 
 **Consequences:**
-- 发布包从不到 1 MB 增大到每个架构约 40 MB，按芯片架构分包（Apple 芯片、Intel 各一个）。
+- 发布包从不到 1 MB 增大到每个架构约 40 MB。运行环境分芯片架构，发布包也按架构分开；先提供 Apple 芯片的包，Intel 包随后补上（#42）。
 - 最低系统要求为 macOS 11，以内置运行时和依赖 wheel 的要求为准。
 - 升级依赖要重新生成锁定文件；`requirements.txt` 仍用于开发环境，其中的 `fmod_toolkit` 只在开发环境安装。

@@ -6,6 +6,7 @@ UnityPy 只在导出音频时才加载它，汉化用不到（见 ADR 0007）。
 没有 wheel 的纯 Python 依赖记录源码包，构建时直接取出其中的包目录。
 """
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -13,8 +14,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
-LOCK = REPO / "packaging" / "runtime.lock.json"
+from runtime import LOCK, REPO  # 与本脚本同在 scripts/ 下
 
 PYTHON_RELEASE = "20261009"
 PYTHON_VERSION = "3.12.15"
@@ -31,7 +31,7 @@ def requirements() -> list[str]:
 
 
 def pypi_files(name: str, version: str) -> dict[str, dict]:
-    with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json") as resp:
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{version}/json", timeout=60) as resp:
         return {f["filename"]: {"url": f["url"], "sha256": f["digests"]["sha256"]} for f in json.load(resp)["urls"]}
 
 
@@ -41,6 +41,8 @@ def python_asset(arch: str) -> dict:
         ["gh", "api", f"repos/astral-sh/python-build-standalone/releases/tags/{PYTHON_RELEASE}", "-q", f'.assets[] | select(.name=="{name}") | .digest'],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
+    if not out.startswith("sha256:"):
+        raise ValueError(f"python-build-standalone {PYTHON_RELEASE} 里找不到 {name} 的 sha256")
     url = f"https://github.com/astral-sh/python-build-standalone/releases/download/{PYTHON_RELEASE}/{name}"
     return {"url": url, "sha256": out.removeprefix("sha256:")}
 
@@ -61,6 +63,9 @@ def lock() -> dict:
     result = {"python": {"version": PYTHON_VERSION, "release": PYTHON_RELEASE}, "sdists": [], "wheels": {arch: [] for arch in ARCHS}}
     for arch in ARCHS:
         result["python"][arch] = python_asset(arch)
+    license_url = f"https://raw.githubusercontent.com/astral-sh/python-build-standalone/{PYTHON_RELEASE}/LICENSE"
+    with urllib.request.urlopen(license_url, timeout=60) as resp:
+        result["python"]["license"] = {"url": license_url, "sha256": hashlib.sha256(resp.read()).hexdigest()}
     for req in requirements():
         name, version = req.split("==")
         files = pypi_files(name, version)

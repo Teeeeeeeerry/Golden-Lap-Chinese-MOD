@@ -9,6 +9,10 @@
     "x86_64": {
       "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15+20261009-x86_64-apple-darwin-install_only.tar.gz",
       "sha256": "4c84ef5abe4bc145646175fce9b881936d60126b9a3f9a24c6308e2d035ca5c6"
+    },
+    "license": {
+      "url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE",
+      "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
     }
   },
   "sdists": [

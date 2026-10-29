@@ -19,17 +19,21 @@ LOCK = REPO / "packaging" / "runtime.lock.json"
 CACHE = Path.home() / "Library" / "Caches" / "GoldenLapZH-build"
 PYTHON = "python3.12"  # 入口；同目录下的其余启动器都是指向它的符号链接，删掉
 SITE = f"lib/{PYTHON}/site-packages"
+LICENSE = "LICENSE.python-build-standalone.txt"  # 解释器构建项目本身的许可证（MPL-2.0）；CPython 的在标准库目录里
+# 运行环境里只应有这些：解释器、它链接的动态库、标准库与依赖、许可证
+ALLOWED = (f"bin/{PYTHON}", "lib/libpython3.12.dylib", f"lib/{PYTHON}/", LICENSE)
 
-# 运行汉化用不到的部分：图形界面（tkinter、IDLE 及 Tcl/Tk）、pip、头文件、手册、测试
+# 运行汉化用不到的部分（glob 模式）：图形界面（tkinter、IDLE 及 Tcl/Tk）、pip、头文件、手册、测试
 PRUNE = [
     "include",
     "share",
     "lib/pkgconfig",
-    "lib/tcl9",
-    "lib/tcl9.0",
-    "lib/tk9.0",
-    "lib/itcl4.3.8",
-    "lib/thread3.0.6",
+    "lib/tcl*",
+    "lib/tk*",
+    "lib/itcl*",
+    "lib/thread*",
+    "lib/libtcl*",
+    "lib/libtk*",
     f"lib/{PYTHON}/config-3.12-darwin",
     f"lib/{PYTHON}/ensurepip",
     f"lib/{PYTHON}/idlelib",
@@ -50,7 +54,7 @@ def fetch(url: str, sha256: str, cache: Path = CACHE) -> Path:
     if not (path.exists() and _sha256(path) == sha256):
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(path.suffix + ".part")
-        with urllib.request.urlopen(url) as resp, open(tmp, "wb") as out:
+        with urllib.request.urlopen(url, timeout=60) as resp, open(tmp, "wb") as out:
             shutil.copyfileobj(resp, out)
         if _sha256(tmp) != sha256:
             tmp.unlink()
@@ -96,12 +100,12 @@ def build_runtime(arch: str, dest: Path, cache: Path = CACHE) -> Path:
     with tarfile.open(fetch(**spec["python"][arch], cache=cache)) as tf:
         tf.extractall(dest, filter="data")
     root = dest / "python"
-    for rel in PRUNE:
-        path = root / rel
-        if path.is_dir():
-            shutil.rmtree(path)
-        elif path.exists():
-            path.unlink()
+    for pattern in PRUNE:
+        for path in root.glob(pattern):
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
     for path in (root / "bin").iterdir():
         if path.name != PYTHON:
             path.unlink()
@@ -111,6 +115,7 @@ def build_runtime(arch: str, dest: Path, cache: Path = CACHE) -> Path:
             shutil.rmtree(path)
     for wheel in spec["wheels"][arch]:
         _install_wheel(fetch(wheel["url"], wheel["sha256"], cache), site)
+    shutil.copy2(fetch(**spec["python"]["license"], cache=cache), root / LICENSE)
     for sdist in spec["sdists"]:
         _install_sdist(fetch(sdist["url"], sdist["sha256"], cache), sdist["name"], site)
     links = [p for p in root.rglob("*") if p.is_symlink()]

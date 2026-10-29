@@ -4,7 +4,7 @@
 
 | 组件 | 用途 | 许可 | 许可证位置 |
 | --- | --- | --- | --- |
-| CPython 3.12（python-build-standalone 构建） | Python 解释器与标准库 | PSF-2.0，内含组件各自的许可 | `lib/python3.12/LICENSE.txt`；python-build-standalone 本身为 BSD-3-Clause |
+| CPython 3.12（python-build-standalone 构建） | Python 解释器与标准库 | CPython 为 PSF-2.0，内含组件各自的许可；python-build-standalone 构建项目本身为 MPL-2.0 | `lib/python3.12/LICENSE.txt`、`LICENSE.python-build-standalone.txt` |
 | UnityPy | 读写 Unity 资源包 | MIT | `site-packages/unitypy-*.dist-info/` |
 | fonttools | 检查中文字体的字形覆盖 | MIT | `site-packages/fonttools-*.dist-info/` |
 | TypeTreeGeneratorAPI | 为 `resources.assets` 现场生成类型信息 | MIT | `site-packages/typetreegeneratorapi-*.dist-info/` |

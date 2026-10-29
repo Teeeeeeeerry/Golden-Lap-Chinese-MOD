@@ -6,12 +6,13 @@
 
 ## 安装
 
-1. 准备 Python 3.11 或更新版本。macOS 自带的通常是 3.9，不够用；请从 https://www.python.org/downloads/macos/ 下载安装。
-2. 解压本压缩包，双击 `install.command`。
+本压缩包适用于 Apple 芯片（M 系列）的 Mac，需要 macOS 11 或更新版本。包里自带运行环境，不用另外安装 Python，安装时也不联网。
+
+1. 解压本压缩包，双击 `install.command`。
    - 第一次打开会被 macOS 拦截（提示“无法验证开发者”）。请在访达中右键点 `install.command` → 打开 → 再点“打开”。
    - 也可以在终端运行 `xattr -dr com.apple.quarantine <解压后的文件夹>`，之后就能直接双击。
-3. 首次运行会联网安装依赖。之后安装器会自动找到 Steam 中的 Golden Lap，备份原始文件并注入汉化。
-4. 启动游戏，进入设置 → 语言，选择「简体中文」。
+2. 安装器会自动找到 Steam 中的 Golden Lap，备份原始文件并注入汉化。
+3. 启动游戏，进入设置 → 语言，选择「简体中文」。
 
 安装器只在你的电脑上修改游戏文件，原始文件备份在 `~/Library/Application Support/GoldenLapZH/backup`。
 
@@ -49,7 +50,7 @@ GOLDEN_LAP_APP="/完整路径/goldenlap.app" ./install.command
 
 ## 内容与许可
 
-本压缩包只包含安装/还原脚本、Python 源码和译文，不含任何游戏原始资源，也不含字体。中文字形使用的是游戏自带的思源黑体。
+本压缩包包含安装/还原脚本、Python 源码、译文，以及运行它们所需的 Python 运行环境（`runtime/`，第三方组件及许可证见 `runtime/THIRD-PARTY.md`）；不含任何游戏原始资源，也不含字体。中文字形使用的是游戏自带的思源黑体。
 
 - 脚本与源码：MIT 许可（见 `LICENSE`）
 - 译文：CC BY-NC-SA 4.0（见 `translations/LICENSE`）
