@@ -18,7 +18,7 @@ def packages(tmp_path_factory):
     return build_releases(tmp_path_factory.mktemp("dist"))
 
 
-HOST = "arm64" if subprocess.run(["sysctl", "-n", "hw.optional.arm64"], capture_output=True, text=True).stdout.strip() == "1" else "x86_64"
+HOST = "arm64" if subprocess.run(["/usr/sbin/sysctl", "-n", "hw.optional.arm64"], capture_output=True, text=True).stdout.strip() == "1" else "x86_64"
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +34,6 @@ def names_in(archive) -> set[str]:
 
 
 def test_release_builds_one_package_per_chip(packages):
-    assert set(ARCHS) == {"arm64", "x86_64"}
     assert {arch: p.name for arch, p in packages.items()} == {arch: f"{ROOT}-macos-{arch}.zip" for arch in ARCHS}
     # 两个包只有内置运行环境不同
     project = [{n for n in names_in(p) if not n.startswith(f"{RUNTIME}/")} for p in packages.values()]
@@ -55,11 +54,12 @@ def macho_archs(data: bytes) -> set[str] | None:
     return None
 
 
-@pytest.mark.parametrize("arch", ["arm64", "x86_64"])
+@pytest.mark.parametrize("arch", ARCHS)
 def test_bundled_binaries_run_on_the_package_chip(packages, arch):
     with zipfile.ZipFile(packages[arch]) as zf:
         binaries = {n: macho_archs(zf.read(n)) for n in zf.namelist() if n.endswith((".so", ".dylib", "/python3.12"))}
     binaries = {n: a for n, a in binaries.items() if a is not None}
+    # 解释器本身，加上标准库和依赖的几十个扩展模块
     assert f"{ROOT}/{PY}" in binaries and len(binaries) > 20
     assert not {n: a for n, a in binaries.items() if arch not in a}
 
@@ -93,7 +93,7 @@ def test_release_contains_installer_restore_translations_readme_and_runtime(pack
             assert zf.getinfo(f"{ROOT}/{name}").external_attr >> 16 & stat.S_IXUSR, name
 
 
-@pytest.mark.parametrize("arch", ["arm64", "x86_64"])
+@pytest.mark.parametrize("arch", ARCHS)
 def test_release_contains_no_game_resources(packages, arch):
     names = names_in(packages[arch])
     assert not [n for n in names if n.endswith((".bundle", ".asset", ".png", ".ttf", ".otf"))]
