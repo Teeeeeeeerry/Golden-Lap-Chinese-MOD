@@ -35,6 +35,7 @@ LAYOUT = [
     ("VERSION", "VERSION"),
     ("packaging/THIRD-PARTY.md", "runtime/THIRD-PARTY.md"),
 ]
+ARCHS = ("arm64", "x86_64")  # Apple 芯片、Intel；运行环境分架构，每种芯片一个发布包
 RUNTIME = "runtime/python"
 # 白名单之内也拦住游戏资源和字体
 RUNTIME_FORBIDDEN = (".bundle", ".asset", ".resS", ".ttf", ".otf", ".ttc", "catalog.json")
@@ -103,8 +104,14 @@ def build_release(out_dir: Path, repo: Path = REPO, arch: str = "arm64", cache: 
     return archive
 
 
+def build_releases(out_dir: Path, repo: Path = REPO, cache: Path = CACHE) -> dict[str, Path]:
+    """为每种芯片各生成一个发布包：架构 → zip 路径。"""
+    return {arch: build_release(out_dir, repo, arch, cache) for arch in ARCHS}
+
+
 def main(argv: list[str]) -> int:
-    print(build_release(Path(argv[0]) if argv else REPO / "dist"))
+    for archive in build_releases(Path(argv[0]) if argv else REPO / "dist").values():
+        print(archive)
     return 0
 
 

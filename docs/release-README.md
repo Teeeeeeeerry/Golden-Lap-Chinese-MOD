@@ -6,7 +6,12 @@
 
 ## 安装
 
-本压缩包适用于 Apple 芯片（M 系列）的 Mac，需要 macOS 11 或更新版本。包里自带运行环境，不用另外安装 Python，安装时也不联网。
+发布包按芯片分两种，需要 macOS 11 或更新版本：
+
+- 文件名以 `macos-arm64.zip` 结尾：Apple 芯片（M1、M2 等）的 Mac；
+- 文件名以 `macos-x86_64.zip` 结尾：Intel 芯片的 Mac。
+
+不确定的话，点屏幕左上角的苹果菜单 →「关于本机」，看「芯片」或「处理器」一栏。下错了也没关系，安装器会提示你该下哪一个。包里自带运行环境，不用另外安装 Python，安装时也不联网。
 
 1. 解压本压缩包，双击 `install.command`。
    - 第一次打开会被 macOS 拦截（提示“无法验证开发者”）。请在访达中右键点 `install.command` → 打开 → 再点“打开”。
@@ -50,7 +55,7 @@ GOLDEN_LAP_APP="/完整路径/goldenlap.app" ./install.command
 
 ## 内容与许可
 
-本压缩包包含安装/还原脚本、Python 源码、译文，以及运行它们所需的 Python 运行环境（`runtime/`，第三方组件及许可证见 `runtime/THIRD-PARTY.md`）；不含任何游戏原始资源，也不含字体。中文字形使用的是游戏自带的思源黑体。
+本压缩包包含安装/还原脚本、Python 源码、译文，以及运行它们所需的、对应芯片的 Python 运行环境（`runtime/`，第三方组件及许可证见 `runtime/THIRD-PARTY.md`）；不含任何游戏原始资源，也不含字体。中文字形使用的是游戏自带的思源黑体。
 
 - 脚本与源码：MIT 许可（见 `LICENSE`）
 - 译文：CC BY-NC-SA 4.0（见 `translations/LICENSE`）
