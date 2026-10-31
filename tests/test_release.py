@@ -139,7 +139,7 @@ def test_release_installs_and_restores_without_system_python(package, fake_game,
     result = run(root / "install.command", fake_game, home)
     assert result.returncode == 0, result.stdout + result.stderr
     after = shas(fake_game, originals)
-    assert after != originals and after["resources.assets"] != originals["resources.assets"]
+    assert after["resources.assets"] != originals["resources.assets"] and after["level2"] != originals["level2"]
     # 没有走「找系统 Python、建虚拟环境、联网装依赖」的老路
     assert not (home / "Library/Application Support/GoldenLapZH/venv").exists()
     assert "正在准备运行环境" not in result.stdout

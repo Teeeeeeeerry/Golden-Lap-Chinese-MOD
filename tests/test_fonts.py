@@ -1,7 +1,7 @@
 import UnityPy
 import pytest
 
-from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars, status_labels
+from glzh.fonts import CJK_FONT_ASSET, STATUS_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars, status_labels
 
 PRIVATE_USE = "\ue000"  # 任何字体都不会有字形的私用区字符
 
@@ -28,6 +28,8 @@ def test_add_cjk_fallback_points_every_font_to_cjk_once(ui):
     before = fonts_by_id(ui)
     after = fonts_by_id(add_cjk_fallback(ui))
     cjk_id = next(i for i, t in after.items() if t["m_Name"] == CJK_FONT_ASSET)
+    assert {t["m_Name"] for i, t in after.items() if i not in before} == {STATUS_FONT_ASSET}  # 专用字体另有测试
+    after = {i: t for i, t in after.items() if i in before}
     assert before.keys() == after.keys() and len(after) > 10
     for path_id, tree in after.items():
         chain = [(ref["m_FileID"], ref["m_PathID"]) for ref in tree.pop("m_FallbackFontAssetTable")]

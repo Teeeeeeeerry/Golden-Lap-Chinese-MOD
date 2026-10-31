@@ -2,7 +2,7 @@
 
 游戏自带思源黑体（NotoSansSC-Black，约 3 万字形）及其动态 TMP 字体 `NotoSansSC-Black SDF`，运行时按需生成字形。
 注入只需把它追加到同一文件内其余 TMP 字体的后备链末尾，开启它的多图集，并把它的行度量按 Figtree 的比例对齐，
-不分发字体（见 ADR 0003、0006）。除下面的专用字体外不新增对象。
+不分发字体（见 ADR 0003、0006）。除下面的专用字体外不新增对象（见 ADR 0008）。
 
 需要处理两处，各有一套独立的 TMP 字体：
 - Addressables 的 `ui_assets_all` 包：自带类型信息；
@@ -11,7 +11,7 @@
 
 排行榜的状态标签另有专用字体：标签关闭了 maskable 才露在遮罩面板外，而后备字体和多图集第 2 张起
 都走 TMP 的子网格，子网格不继承 maskable，中文会被裁掉。所以标签的主字体要自带中文字形，
-且只用一张图集（见 #48）。
+且只用一张图集（见 ADR 0008）。
 """
 
 import copy
@@ -27,7 +27,7 @@ from glzh.bundles import PACKER, mono_behaviours
 from glzh.game import GameFiles
 
 CJK_FONT_ASSET = "NotoSansSC-Black SDF"
-LINE_METRICS_FONT = "Figtree-Bold SDF"  # 挂中文后备的主字体之一；Figtree 各字重行度量相同
+FIGTREE_BOLD = "Figtree-Bold SDF"  # 状态标签原本的字体，也是挂中文后备的主字体之一；Figtree 各字重行度量相同
 LINE_METRICS = ("m_AscentLine", "m_DescentLine", "m_LineHeight")
 DYNAMIC = 1  # m_AtlasPopulationMode：运行时按需生成字形
 STATUS_LABEL = "StatusLabelText"  # 排行榜状态标签的文本组件所在的 GameObject
@@ -37,7 +37,7 @@ STYLE_FIELD = "reflectedTextStyleField"  # FunTextTMP 的文本样式绑定，�
 
 @dataclass(frozen=True)
 class StatusFont:
-    """resources.assets 中专用字体及其材质的 path_id。"""
+    """专用字体及其材质的 path_id。"""
 
     font: int
     material: int
@@ -101,9 +101,9 @@ def _enable_multi_atlas(cjk_obj, cjk: dict) -> None:
 
 
 def _figtree_bold(fonts: list) -> dict:
-    refs = [tree for _, tree in fonts if tree["m_Name"] == LINE_METRICS_FONT]
+    refs = [tree for _, tree in fonts if tree["m_Name"] == FIGTREE_BOLD]
     if len(refs) != 1:
-        raise ValueError(f"应恰好有一个 {LINE_METRICS_FONT}，实际 {len(refs)} 个；中文字体的行度量要与它对齐")
+        raise ValueError(f"应恰好有一个 {FIGTREE_BOLD}，实际 {len(refs)} 个；中文字体的行度量要与它对齐")
     return refs[0]
 
 
@@ -125,6 +125,35 @@ def _patch_cjk(fonts: list, cjk_obj, cjk: dict) -> None:
     _append_fallback(fonts, cjk_obj.path_id)
     _enable_multi_atlas(cjk_obj, cjk)
     _align_line_metrics(fonts, cjk_obj, cjk)
+
+
+def status_labels(container) -> list:
+    """资源包或序列化文件中的状态标签文本组件：[(对象, typetree)]。"""
+    return [
+        (obj, tree)
+        for obj, tree in mono_behaviours(container)
+        if "m_text" in tree and obj.assets_file.objects[tree["m_GameObject"]["m_PathID"]].read_typetree()["m_Name"] == STATUS_LABEL
+    ]
+
+
+def _retarget_labels(labels: list, status_font: StatusFont, font_file: str | None) -> None:
+    """让标签改用专用字体并清除样式绑定，否则运行时字体又被样式改回去。font_file 是字体所在的外部文件，None 表示同一文件。
+
+    组件上的字号、对齐、字形样式与颜色都不动：样式只提供字体和与组件相同的字号。
+    """
+    for obj, tree in labels:
+        if tree["m_Maskable"] != 0:
+            raise ValueError(f"状态标签打开了 maskable，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
+        if not tree.get(STYLE_FIELD):
+            raise ValueError(f"状态标签没有样式绑定，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
+        file_id = tree["m_fontAsset"]["m_FileID"]
+        found = PurePath(obj.assets_file.externals[file_id - 1].path).name if file_id else None
+        if found != font_file:
+            raise ValueError(f"状态标签的字体不在 {font_file or '所在文件'} 里（对象 {obj.path_id}）；游戏可能改了界面")
+        tree[STYLE_FIELD] = ""
+        tree["m_fontAsset"] = {"m_FileID": file_id, "m_PathID": status_font.font}
+        tree["m_sharedMaterial"] = {"m_FileID": file_id, "m_PathID": status_font.material}
+        obj.save_typetree(tree)
 
 
 def _add_clone(source, path_id: int, tree: dict) -> None:
@@ -173,10 +202,16 @@ def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
 
 
 def inject_cjk_fallback(env) -> None:
-    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过），开启它的多图集并对齐行度量。"""
+    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过），开启它的多图集并对齐行度量，
+    再让预制体里的状态标签改用包内的专用字体（包不能引用 resources.assets 的对象）。
+    """
     fonts = font_assets(env)
     cjk_obj, cjk = _cjk_font(fonts)
     _patch_cjk(fonts, cjk_obj, cjk)
+    labels = status_labels(env)
+    if not labels:
+        raise ValueError("ui 包里找不到状态标签，中文会被排行榜的遮罩裁掉；游戏可能改了界面")
+    _retarget_labels(labels, _add_status_font(fonts, cjk_obj, cjk), None)
 
 
 def add_cjk_fallback(bundle: bytes) -> bytes:
@@ -213,37 +248,15 @@ def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -
     return serialized.save(), status_font
 
 
-def status_labels(serialized) -> list:
-    """比赛场景里的状态标签文本组件：[(对象, typetree)]。"""
-    return [
-        (obj, tree)
-        for obj, tree in mono_behaviours(serialized)
-        if "m_text" in tree and serialized.objects[tree["m_GameObject"]["m_PathID"]].read_typetree()["m_Name"] == STATUS_LABEL
-    ]
 
 
 def use_status_font(scene: bytes, deps: GameFiles, status_font: StatusFont) -> bytes:
-    """把比赛场景里的状态标签改用专用字体，并清除样式绑定，否则运行时字体又被样式改回去。
-
-    组件上的字号、对齐、字形样式与颜色都不动：样式只提供字体和与组件相同的字号。
-    """
+    """把比赛场景里的状态标签改用 resources.assets 里的专用字体。"""
     serialized = load_serialized(scene, deps)
     labels = status_labels(serialized)
     if not labels:
         raise ValueError("比赛场景里找不到状态标签，中文会被排行榜的遮罩裁掉；游戏可能改了界面")
-    externals = serialized.externals
-    for obj, tree in labels:
-        if tree["m_Maskable"] != 0:
-            raise ValueError(f"状态标签打开了 maskable，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
-        if not tree.get(STYLE_FIELD):
-            raise ValueError(f"状态标签没有样式绑定，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
-        file_id = tree["m_fontAsset"]["m_FileID"]
-        if file_id == 0 or PurePath(externals[file_id - 1].path).name != deps.resources.name:
-            raise ValueError(f"状态标签的字体不在 {deps.resources.name} 里（对象 {obj.path_id}）；游戏可能改了界面")
-        tree[STYLE_FIELD] = ""
-        tree["m_fontAsset"] = {"m_FileID": file_id, "m_PathID": status_font.font}
-        tree["m_sharedMaterial"] = {"m_FileID": file_id, "m_PathID": status_font.material}
-        obj.save_typetree(tree)
+    _retarget_labels(labels, status_font, deps.resources.name)
     return serialized.save()
 
 

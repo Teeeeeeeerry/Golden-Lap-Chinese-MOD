@@ -138,7 +138,8 @@ def test_build_localizes_hardcoded_text_without_changing_other_languages(game, o
     assert {k: v for k, v in after[target[0]].items() if k != "textLocalization"} == {
         k: v for k, v in before[target[0]].items() if k != "textLocalization"
     }
-    assert all(after[i] == t for i, t in before.items() if i != target[0])
+    labels = {o.path_id for o, _ in status_labels(UnityPy.load(game.ui.read_bytes()))}  # 状态标签另有测试
+    assert all(after[i] == t for i, t in before.items() if i != target[0] and i not in labels)
 
     shared = [t for t in mono_behaviours(outputs[f"{AA}/StandaloneOSX/{SHARED_BUNDLE}"]).values() if t.get("m_TableCollectionName") == "Menus"][0]
     assert {"m_Id": m_id, "m_Key": f"glzh/{OUR_NEW_GAME}", "m_Metadata": {"m_Items": []}} in shared["m_Entries"]
@@ -244,6 +245,41 @@ def test_build_points_every_status_label_at_dedicated_font(game, outputs):
     raw_before, raw_after = serialized_raw(game.race_scene.read_bytes(), game), serialized_raw(outputs["level2"], game)
     assert raw_before.keys() == raw_after.keys()
     assert all(raw_after[i] == raw for i, raw in raw_before.items() if i not in after)
+
+
+def test_build_points_prefab_status_label_at_font_in_the_ui_bundle(game, outputs):
+    """包不能引用 resources.assets 的对象，预制体的标签要用包内自己的专用字体，配置与场景用的那份相同。"""
+    env = UnityPy.load(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])
+    before = {o.path_id: t for o, t in status_labels(UnityPy.load(game.ui.read_bytes()))}
+    labels = status_labels(env)
+    assert len(labels) == 1 and {o.path_id for o, _ in labels} == before.keys()
+    obj, tree = labels[0]
+    fonts = {o.path_id: t for o, t in font_assets(env)}
+    status_id, font = next((i, t) for i, t in fonts.items() if t["m_Name"] == STATUS_FONT_ASSET)
+    cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
+    figtree = next(t for t in fonts.values() if t["m_Name"] == "Figtree-Bold SDF")
+    assert tree["m_fontAsset"] == {"m_FileID": 0, "m_PathID": status_id} and tree["m_sharedMaterial"] == font["m_Material"]
+    assert tree.pop("reflectedTextStyleField") == "" and before[obj.path_id].pop("reflectedTextStyleField")
+    for key in ("m_fontAsset", "m_sharedMaterial"):
+        tree.pop(key), before[obj.path_id].pop(key)
+    assert tree == before[obj.path_id]
+    assert font["m_AtlasPopulationMode"] == 1 and font["m_IsMultiAtlasTexturesEnabled"] == 0
+    assert font["m_SourceFontFile"] == cjk["m_SourceFontFile"] and font["m_FallbackFontAssetTable"] == figtree["m_FallbackFontAssetTable"]
+    assert font["m_FaceInfo"] == cjk["m_FaceInfo"]  # 行度量已对齐 Figtree，另有测试
+    assert font["m_Material"] != cjk["m_Material"] and font["m_AtlasTextures"] != cjk["m_AtlasTextures"]
+    material = obj.assets_file.objects[font["m_Material"]["m_PathID"]].read_typetree()
+    assert dict(material["m_SavedProperties"]["m_TexEnvs"])["_MainTex"]["m_Texture"] == font["m_AtlasTextures"][0]
+
+
+def test_build_refuses_when_ui_bundle_has_no_status_label(fake_game, tmp_path):
+    env = UnityPy.load(fake_game.ui.read_bytes())
+    for obj, tree in status_labels(env):
+        go = obj.assets_file.objects[tree["m_GameObject"]["m_PathID"]]
+        go.save_typetree({**go.read_typetree(), "m_Name": "Renamed"})
+    fake_game.ui.write_bytes(env.file.save(packer=PACKER))
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="ui 包里找不到状态标签"):
+        build(fake_game, tmp_path)
 
 
 def edit_scene_labels(game, only_first=False, **fields):
