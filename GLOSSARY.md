@@ -40,8 +40,20 @@ _Avoid_: 数据 MOD、工坊 MOD
 在玩家本地读取游戏文件、就地注入译文并为界面字体挂上中文后备字体、并可还原的程序。本项目不做运行时注入，故无常驻插件。玩家通过一行安装命令（下载 Release 中的 `install.sh`，按芯片取发布包并校验 sha256）或双击发布包中的 `install.command` 运行它。
 _Avoid_: 插件、hook、补丁器、mod 本体
 
+**状态标签**:
+排行榜每行右侧的深色标签，显示赛车状态：进站圈、出站圈、进站、退赛。它关闭了 maskable 才露在排行榜的遮罩面板外（文本组件 `StatusLabelText`）。
+_Avoid_: 黑块、status pill
+
+**子网格**:
+TMP 为同一段文字里不同字体或不同图集的字形单独创建的网格（`TMP_SubMeshUI`）。后备字体和多图集第 2 张起的字形都画在这里。子网格不继承文本组件的 maskable。
+_Avoid_: sub mesh、子对象
+
+**专用字体**:
+只给状态标签用的动态字体 `GoldenLapZH-StatusLabel SDF`，由注入器从 `NotoSansSC-Black SDF` 克隆，只有一张图集，中文画在主网格里（见 ADR 0008）。
+_Avoid_: 标签字体
+
 **构建**:
-由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包、`resources.assets` 与 catalog 的过程，在玩家本地运行。
+由译文文件与玩家本地的原始游戏文件生成待写回的字符串表包、locales 包、ui 包、`resources.assets`、`level2` 与 catalog 的过程，在玩家本地运行。
 _Avoid_: 打包、编译
 
 **翻译条目**:
