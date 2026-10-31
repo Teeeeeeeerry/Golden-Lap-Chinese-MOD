@@ -202,7 +202,7 @@ def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
 
 
 def inject_cjk_fallback(env) -> None:
-    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾（已含则跳过），开启它的多图集并对齐行度量，
+    """在已加载的 ui 包中，把中文字体追加到其余 TMP 字体的后备链末尾，开启它的多图集并对齐行度量，
     再让预制体里的状态标签改用包内的专用字体（包不能引用 resources.assets 的对象）。
     """
     fonts = font_assets(env)
@@ -246,8 +246,6 @@ def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -
     _patch_cjk(fonts, cjk_obj, cjk)
     status_font = _add_status_font(fonts, cjk_obj, cjk)
     return serialized.save(), status_font
-
-
 
 
 def use_status_font(scene: bytes, deps: GameFiles, status_font: StatusFont) -> bytes:
