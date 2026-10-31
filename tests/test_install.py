@@ -28,6 +28,24 @@ def test_install_backs_up_originals_patches_game_and_is_repeatable(fake_game, or
     assert {rel: sha(fake_game.data / rel) for rel in written} == first
 
 
+def test_upgrade_adds_race_scene_to_existing_backup(fake_game, originals, tmp_path):
+    """v0.0.20 及以前不改 level2：备份里没有它，游戏里的就是原版，升级时补进备份，之后仍能还原。"""
+    backup = tmp_path / "backup"
+    install(fake_game, backup)
+    written = dict(json.loads((backup / MANIFEST).read_text()))
+    # 还原 level2，拼出旧版本安装后的样子
+    shutil.copy2(backup / "level2", fake_game.race_scene)
+    (backup / "level2").unlink()
+    del written["level2"]
+    (backup / MANIFEST).write_text(json.dumps(written))
+
+    install(fake_game, backup)
+    assert all(sha(backup / rel) == digest for rel, digest in originals.items())
+    assert sha(fake_game.race_scene) != originals["level2"]
+    restore(fake_game, backup)
+    assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
+
+
 def test_install_refreshes_backup_after_game_update(fake_game, game, tmp_path):
     backup = tmp_path / "backup"
     install(fake_game, backup)
@@ -50,6 +68,18 @@ def test_install_refuses_when_resources_assets_is_patched_but_backup_is_gone(fak
     shutil.copy2(game.catalog, fake_game.catalog)  # catalog 看似原版，但 resources.assets 仍是注入后的
     with pytest.raises(AlreadyPatched, match="验证游戏文件的完整性"):
         install(fake_game, tmp_path / "new-backup")
+
+
+def test_install_refuses_when_race_scene_is_patched_but_backup_is_gone(fake_game, tmp_path):
+    original = fake_game.race_scene.read_bytes()
+    install(fake_game, tmp_path / "first")
+    patched = fake_game.race_scene.read_bytes()
+    restore(fake_game, tmp_path / "first")
+    assert fake_game.race_scene.read_bytes() == original
+    fake_game.race_scene.write_bytes(patched)  # 其余文件都是原版，只有 level2 留着注入后的内容
+    with pytest.raises(AlreadyPatched):
+        install(fake_game, tmp_path / "second")
+    assert not (tmp_path / "second/level2").exists()
 
 
 def test_install_migrates_backup_from_v0_0_9_layout(fake_game, game, originals, tmp_path):

@@ -1,7 +1,7 @@
 import UnityPy
 import pytest
 
-from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars
+from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars, status_labels
 
 PRIVATE_USE = "\ue000"  # 任何字体都不会有字形的私用区字符
 
@@ -45,6 +45,10 @@ def test_add_cjk_fallback_points_every_font_to_cjk_once(ui):
 def serialized_fonts(data: bytes, game) -> dict[int, dict]:
     """读回 resources.assets 这类无内嵌类型信息的序列化文件中的 TMP 字体。"""
     return {obj.path_id: tree for obj, tree in font_assets(load_serialized(data, game))}
+
+
+def scene_labels(data: bytes, game) -> dict:
+    return {obj.path_id: tree for obj, tree in status_labels(load_serialized(data, game))}
 
 
 def serialized_raw(data: bytes, game) -> dict[int, bytes]:

@@ -18,7 +18,7 @@ def build(
 ) -> dict[str, bytes]:
     """读取 src 中的原始文件，返回 {相对 Data 目录的路径: 新内容}。
 
-    deps 提供读取 resources.assets 所需的只读依赖（程序集与 globalgamemanagers.assets），
+    deps 提供读取 resources.assets 和 level2 所需的只读依赖（程序集与 globalgamemanagers.assets），
     默认取 src 自身；从备份构建时传入真实游戏。
     """
     english_bundle, turkish_bundle = src.english.read_bytes(), src.turkish.read_bytes()
@@ -51,15 +51,17 @@ def build(
     if missing_texts:
         # 游戏更新后原文变了：组件保持英文，提示维护者更新 Hardcoded.json
         print(f"未在界面中找到这些写死文本，保持英文：{', '.join(missing_texts)}")
+    resources, status_font = fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars)
     outputs |= {
         src.ui: env.file.save(packer=PACKER),
-        src.resources: fonts.add_cjk_fallback_serialized(src.resources.read_bytes(), deps or src, chars),
+        src.resources: resources,
+        src.race_scene: fonts.use_status_font(src.race_scene.read_bytes(), deps or src, status_font),
         src.turkish: string_tables.patch_string_tables(turkish_bundle, texts),
         src.locales: string_tables.rename_language_option(
             src.locales.read_bytes(), LANGUAGE_CODE, LANGUAGE_NAME, LANGUAGE_CULTURE
         ),
     }
-    # 只有经 catalog 加载的 Addressables 包需要把 CRC 置 0；resources.assets 不在 catalog 中
+    # 只有经 catalog 加载的 Addressables 包需要把 CRC 置 0；resources.assets、level2 不在 catalog 中
     patched = {path.name for path in outputs if path.parent == src.bundles}
     catalog_text = src.catalog.read_text(encoding="utf-8")
     beside = f"Menus_{LANGUAGE_CODE}"  # 土耳其语包里原有的表，新表与它同包

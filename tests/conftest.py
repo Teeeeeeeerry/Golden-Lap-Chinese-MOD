@@ -50,5 +50,5 @@ def fake_game(game, tmp_path):
 @pytest.fixture(scope="module")
 def originals(game):
     """安装器会改动的文件（相对 Data 目录）→ 原版 sha256。"""
-    patched = (game.catalog, game.turkish, game.locales, game.shared, game.english, game.ui, game.resources)
+    patched = (game.catalog, game.turkish, game.locales, game.shared, game.english, game.ui, game.resources, game.race_scene)
     return {p.relative_to(game.data).as_posix(): sha(p) for p in patched}
