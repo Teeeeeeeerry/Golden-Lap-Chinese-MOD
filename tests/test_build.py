@@ -47,6 +47,7 @@ def test_build_outputs_keep_original_file_names(game, outputs):
         f"{AA}/StandaloneOSX/{SHARED_BUNDLE}",
         f"{AA}/StandaloneOSX/{ENGLISH_BUNDLE}",
         "resources.assets",
+        "level2",
     }
 
 
