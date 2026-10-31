@@ -8,9 +8,16 @@
 - Addressables 的 `ui_assets_all` 包：自带类型信息；
 - Resources 目录的 `resources.assets`：没有内嵌类型信息，需用游戏程序集现场生成 typetree，
   且其 MonoBehaviour 引用 `globalgamemanagers.assets` 中的脚本，读取时要一并加载。
+
+排行榜的状态标签另有专用字体：标签关闭了 maskable 才露在遮罩面板外，而后备字体和多图集第 2 张起
+都走 TMP 的子网格，子网格不继承 maskable，中文会被裁掉。所以标签的主字体要自带中文字形，
+且只用一张图集（见 #48）。
 """
 
+import copy
 import io
+from dataclasses import dataclass
+from pathlib import PurePath
 
 import UnityPy
 from fontTools.ttLib import TTFont
@@ -23,6 +30,16 @@ CJK_FONT_ASSET = "NotoSansSC-Black SDF"
 LINE_METRICS_FONT = "Figtree-Bold SDF"  # 挂中文后备的主字体之一；Figtree 各字重行度量相同
 LINE_METRICS = ("m_AscentLine", "m_DescentLine", "m_LineHeight")
 DYNAMIC = 1  # m_AtlasPopulationMode：运行时按需生成字形
+STATUS_FONT_ASSET = "GoldenLapZH-StatusLabel SDF"
+STYLE_FIELD = "reflectedTextStyleField"  # FunTextTMP 的文本样式绑定，运行时按样式重设字体
+
+
+@dataclass(frozen=True)
+class StatusFont:
+    """resources.assets 中专用字体及其材质的 path_id。"""
+
+    font: int
+    material: int
 
 
 def required_chars(texts) -> set[str]:
@@ -82,16 +99,20 @@ def _enable_multi_atlas(cjk_obj, cjk: dict) -> None:
         cjk_obj.save_typetree(cjk)
 
 
+def _figtree_bold(fonts: list) -> dict:
+    refs = [tree for _, tree in fonts if tree["m_Name"] == LINE_METRICS_FONT]
+    if len(refs) != 1:
+        raise ValueError(f"应恰好有一个 {LINE_METRICS_FONT}，实际 {len(refs)} 个；无法对齐中文字体的行度量")
+    return refs[0]
+
+
 def _align_line_metrics(fonts: list, cjk_obj, cjk: dict) -> None:
     """把中文字体的上沿、下沿、行高改成与 Figtree 相同的比例（见 ADR 0006）。
 
     TMP 排一行时取各字形所属字体的最大上沿，思源黑体上沿 1.16em、Figtree 0.95em：
     一行里只要有中文，基线就下移，与旁边纯数字的文本框对不齐。按比例重算，重复执行结果不变。
     """
-    refs = [tree for _, tree in fonts if tree["m_Name"] == LINE_METRICS_FONT]
-    if len(refs) != 1:
-        raise ValueError(f"应恰好有一个 {LINE_METRICS_FONT}，实际 {len(refs)} 个；无法对齐中文字体的行度量")
-    ref, face = refs[0]["m_FaceInfo"], cjk["m_FaceInfo"]
+    ref, face = _figtree_bold(fonts)["m_FaceInfo"], cjk["m_FaceInfo"]
     scale = face["m_PointSize"] / ref["m_PointSize"]
     for key in LINE_METRICS:
         face[key] = ref[key] * scale
@@ -103,6 +124,46 @@ def _patch_cjk(fonts: list, cjk_obj, cjk: dict) -> None:
     _append_fallback(fonts, cjk_obj.path_id)
     _enable_multi_atlas(cjk_obj, cjk)
     _align_line_metrics(fonts, cjk_obj, cjk)
+
+
+def _add_clone(source, path_id: int, tree: dict) -> None:
+    """以 source 的类型信息在同一文件内新增对象；path_id 紧接文件现有最大值，保持对象表有序。"""
+    obj = copy.copy(source)
+    obj.path_id = path_id
+    obj.save_typetree(tree)
+    source.assets_file.objects[path_id] = obj
+
+
+def _add_status_font(fonts: list, cjk_obj, cjk: dict) -> StatusFont:
+    """从已注入的中文字体克隆出状态标签的专用字体（字体、材质、图集各一个新对象）。
+
+    源字体文件共用，所以字形覆盖与中文字体相同。TMP 按名字计算字体和材质的哈希，新对象都要改名。
+    保留 Figtree 的后备链：其他文字系统的标签仍走后备，显示与原版相同。
+    """
+    objects = cjk_obj.assets_file.objects
+    atlas_source, material_source = objects[cjk["m_AtlasTextures"][0]["m_PathID"]], objects[cjk["m_Material"]["m_PathID"]]
+    atlas_id, material_id, font_id = (max(objects) + i for i in (1, 2, 3))
+    ref = {"m_FileID": 0, "m_PathID": atlas_id}
+
+    _add_clone(atlas_source, atlas_id, atlas_source.read_typetree() | {"m_Name": f"{STATUS_FONT_ASSET} Atlas"})
+    material = material_source.read_typetree() | {"m_Name": f"{STATUS_FONT_ASSET} Material"}
+    material["m_SavedProperties"]["m_TexEnvs"] = [
+        (name, env | {"m_Texture": ref}) if name == "_MainTex" else (name, env) for name, env in material["m_SavedProperties"]["m_TexEnvs"]
+    ]
+    _add_clone(material_source, material_id, material)
+    _add_clone(
+        cjk_obj,
+        font_id,
+        copy.deepcopy(cjk)
+        | {
+            "m_Name": STATUS_FONT_ASSET,
+            "m_Material": {"m_FileID": 0, "m_PathID": material_id},
+            "m_AtlasTextures": [ref],
+            "m_IsMultiAtlasTexturesEnabled": 0,
+            "m_FallbackFontAssetTable": copy.deepcopy(_figtree_bold(fonts)["m_FallbackFontAssetTable"]),
+        },
+    )
+    return StatusFont(font_id, material_id)
 
 
 def missing_glyphs(bundle: bytes, chars: set[str]) -> set[str]:
@@ -125,26 +186,52 @@ def add_cjk_fallback(bundle: bytes) -> bytes:
 
 
 def load_serialized(data: bytes, deps: GameFiles):
-    """加载 resources.assets 这类没有内嵌类型信息的序列化文件。
+    """加载 resources.assets、level2 这类没有内嵌类型信息的序列化文件。
 
     deps 提供只读依赖：程序集（生成 typetree）与 globalgamemanagers.assets（脚本引用）。
     """
     env = UnityPy.Environment()
     env.load_file(deps.globalgamemanagers.read_bytes(), name=deps.globalgamemanagers.name, is_dependency=True)
-    serialized = env.load_file(data, name=deps.resources.name)
+    serialized = env.load_file(data, name="serialized")
     generator = TypeTreeGenerator(serialized.unity_version)
     generator.load_local_dll_folder(str(deps.managed))
     env.typetree_generator = generator
     return serialized
 
 
-def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -> bytes:
-    """resources.assets：检查中文字体覆盖 chars 后，把它追加到其余 TMP 字体的后备链末尾，开启它的多图集并对齐行度量。"""
+def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -> tuple[bytes, StatusFont]:
+    """resources.assets：检查中文字体覆盖 chars 后，把它追加到其余 TMP 字体的后备链末尾，开启它的多图集并对齐行度量，
+    再克隆出状态标签的专用字体。返回新内容与专用字体的位置。
+    """
     serialized = load_serialized(data, deps)
     fonts = font_assets(serialized)
     cjk_obj, cjk = _cjk_font(fonts)
     ensure_glyphs(_missing(cjk_obj, cjk, chars))
     _patch_cjk(fonts, cjk_obj, cjk)
+    status_font = _add_status_font(fonts, cjk_obj, cjk)
+    return serialized.save(), status_font
+
+
+def use_status_font(scene: bytes, deps: GameFiles, status_font: StatusFont) -> bytes:
+    """把比赛场景里的状态标签（唯一关闭了 maskable 的文本）改用专用字体，并清除样式绑定，否则运行时字体又被样式改回去。
+
+    组件上的字号、对齐、字形样式与颜色都不动：样式只提供字体和与组件相同的字号。
+    """
+    serialized = load_serialized(scene, deps)
+    labels = [(obj, tree) for obj, tree in mono_behaviours(serialized) if "m_text" in tree and tree["m_Maskable"] == 0]
+    if not labels:
+        raise ValueError("比赛场景里找不到状态标签，中文会被排行榜的遮罩裁掉；游戏可能改了界面")
+    externals = serialized.externals
+    for obj, tree in labels:
+        if not tree.get(STYLE_FIELD):
+            raise ValueError(f"状态标签没有样式绑定，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
+        file_id = tree["m_fontAsset"]["m_FileID"]
+        if file_id == 0 or PurePath(externals[file_id - 1].path).name != deps.resources.name:
+            raise ValueError(f"状态标签的字体不在 {deps.resources.name} 里（对象 {obj.path_id}）；游戏可能改了界面")
+        tree[STYLE_FIELD] = ""
+        tree["m_fontAsset"] = {"m_FileID": file_id, "m_PathID": status_font.font}
+        tree["m_sharedMaterial"] = {"m_FileID": file_id, "m_PathID": status_font.material}
+        obj.save_typetree(tree)
     return serialized.save()
 
 

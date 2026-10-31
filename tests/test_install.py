@@ -28,6 +28,24 @@ def test_install_backs_up_originals_patches_game_and_is_repeatable(fake_game, or
     assert {rel: sha(fake_game.data / rel) for rel in written} == first
 
 
+def test_upgrade_adds_race_scene_to_existing_backup(fake_game, originals, tmp_path):
+    """v0.0.20 及以前不改 level2：备份里没有它，游戏里的就是原版，升级时补进备份，之后仍能还原。"""
+    backup = tmp_path / "backup"
+    install(fake_game, backup)
+    written = dict(json.loads((backup / MANIFEST).read_text()))
+    # 还原 level2，拼出旧版本安装后的样子
+    shutil.copy2(backup / "level2", fake_game.race_scene)
+    (backup / "level2").unlink()
+    del written["level2"]
+    (backup / MANIFEST).write_text(json.dumps(written))
+
+    install(fake_game, backup)
+    assert all(sha(backup / rel) == digest for rel, digest in originals.items())
+    assert sha(fake_game.race_scene) != originals["level2"]
+    restore(fake_game, backup)
+    assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
+
+
 def test_install_refreshes_backup_after_game_update(fake_game, game, tmp_path):
     backup = tmp_path / "backup"
     install(fake_game, backup)

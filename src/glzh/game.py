@@ -47,6 +47,11 @@ class GameFiles:
         return self.data / "resources.assets"
 
     @property
+    def race_scene(self) -> Path:
+        """比赛场景，排行榜的 20 行状态标签直接存在这里。"""
+        return self.data / "level2"
+
+    @property
     def globalgamemanagers(self) -> Path:
         """resources.assets 中脚本引用所在的文件，读取其 MonoBehaviour 时需要。"""
         return self.data / "globalgamemanagers.assets"
@@ -90,7 +95,7 @@ class GameFiles:
     @property
     def inputs(self) -> list[Path]:
         """构建需要读取的原始文件。"""
-        return [self.catalog, self.english, self.turkish, self.locales, self.shared, self.ui, self.resources]
+        return [self.catalog, self.english, self.turkish, self.locales, self.shared, self.ui, self.resources, self.race_scene]
 
     def exists(self) -> bool:
         """原始文件与只读依赖（程序集、globalgamemanagers.assets）都在。"""

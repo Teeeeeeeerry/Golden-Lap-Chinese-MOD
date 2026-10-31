@@ -5,6 +5,7 @@
     <备份目录>/StreamingAssets/aa/catalog.json
     <备份目录>/StreamingAssets/aa/StandaloneOSX/<被改动的包与英文字符串表包>
     <备份目录>/resources.assets
+    <备份目录>/level2
     <备份目录>/patched.json   上次写入游戏的各文件 sha256，键为相对 Data 目录的路径
 
 v0.0.9 及以前的备份以 aa 目录为根，首次运行新版时自动迁移。
@@ -59,8 +60,8 @@ def _migrate_aa_rooted_backup(backup_dir: Path) -> None:
     先改写安装记录、再逐个移动文件，两步都可重复执行：中途中断后重跑会接着完成。
     """
     def is_aa_rooted(rel: str) -> bool:
-        # 旧键形如 catalog.json、StandaloneOSX/…；新布局中 aa 之外的只有 resources.assets
-        return not rel.startswith(f"{AA_DIR}/") and rel != "resources.assets"
+        # 旧键形如 catalog.json、StandaloneOSX/…；新布局中 aa 之外的只有 resources.assets 和 level2
+        return not rel.startswith(f"{AA_DIR}/") and rel not in ("resources.assets", "level2")
 
     patched = _read_manifest(backup_dir)
     if any(is_aa_rooted(rel) for rel in patched):
