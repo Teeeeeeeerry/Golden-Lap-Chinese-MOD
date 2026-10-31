@@ -23,7 +23,7 @@ from pathlib import Path
 from glzh import translations
 from glzh.build import build
 from glzh.catalog import bundle_crcs
-from glzh.fonts import is_injected_serialized
+from glzh.fonts import is_injected_race_scene, is_injected_serialized
 from glzh.game import AA_DIR, UI_BUNDLE_GLOB, GameFiles
 
 BACKUP_DIR = Path.home() / "Library/Application Support/GoldenLapZH/backup"
@@ -98,9 +98,11 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
             continue  # 未被改动的原版（如英文包），已备份
         to_backup.append(path)
     # 确认要备份的文件是原版（例如删掉了备份目录后重跑）：catalog 中土耳其语包 CRC 为 0，
-    # 或 resources.assets 的字体已全部挂上中文后备，都说明它们已被改过
-    if (game.catalog in to_backup and bundle_crcs(game.catalog.read_text(encoding="utf-8")).get(game.turkish.name) == 0) or (
-        game.resources in to_backup and is_injected_serialized(game.resources.read_bytes(), game)
+    # resources.assets 的字体已全部挂上中文后备，或 level2 的状态标签已脱离样式表，都说明它们已被改过
+    if (
+        (game.catalog in to_backup and bundle_crcs(game.catalog.read_text(encoding="utf-8")).get(game.turkish.name) == 0)
+        or (game.resources in to_backup and is_injected_serialized(game.resources.read_bytes(), game))
+        or (game.race_scene in to_backup and is_injected_race_scene(game.race_scene.read_bytes(), game))
     ):
         raise AlreadyPatched(f"游戏文件已被修改过，但找不到对应的原版备份。{VERIFY_HINT}恢复后再运行安装器。")
     for path in to_backup:

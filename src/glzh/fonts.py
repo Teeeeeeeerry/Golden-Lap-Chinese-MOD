@@ -2,7 +2,7 @@
 
 游戏自带思源黑体（NotoSansSC-Black，约 3 万字形）及其动态 TMP 字体 `NotoSansSC-Black SDF`，运行时按需生成字形。
 注入只需把它追加到同一文件内其余 TMP 字体的后备链末尾，开启它的多图集，并把它的行度量按 Figtree 的比例对齐，
-不新增对象、不分发字体（见 ADR 0003、0006）。
+不分发字体（见 ADR 0003、0006）。除下面的专用字体外不新增对象。
 
 需要处理两处，各有一套独立的 TMP 字体：
 - Addressables 的 `ui_assets_all` 包：自带类型信息；
@@ -30,6 +30,7 @@ CJK_FONT_ASSET = "NotoSansSC-Black SDF"
 LINE_METRICS_FONT = "Figtree-Bold SDF"  # 挂中文后备的主字体之一；Figtree 各字重行度量相同
 LINE_METRICS = ("m_AscentLine", "m_DescentLine", "m_LineHeight")
 DYNAMIC = 1  # m_AtlasPopulationMode：运行时按需生成字形
+STATUS_LABEL = "StatusLabelText"  # 排行榜状态标签的文本组件所在的 GameObject
 STATUS_FONT_ASSET = "GoldenLapZH-StatusLabel SDF"
 STYLE_FIELD = "reflectedTextStyleField"  # FunTextTMP 的文本样式绑定，运行时按样式重设字体
 
@@ -102,7 +103,7 @@ def _enable_multi_atlas(cjk_obj, cjk: dict) -> None:
 def _figtree_bold(fonts: list) -> dict:
     refs = [tree for _, tree in fonts if tree["m_Name"] == LINE_METRICS_FONT]
     if len(refs) != 1:
-        raise ValueError(f"应恰好有一个 {LINE_METRICS_FONT}，实际 {len(refs)} 个；无法对齐中文字体的行度量")
+        raise ValueError(f"应恰好有一个 {LINE_METRICS_FONT}，实际 {len(refs)} 个；中文字体的行度量要与它对齐")
     return refs[0]
 
 
@@ -143,12 +144,12 @@ def _add_status_font(fonts: list, cjk_obj, cjk: dict) -> StatusFont:
     objects = cjk_obj.assets_file.objects
     atlas_source, material_source = objects[cjk["m_AtlasTextures"][0]["m_PathID"]], objects[cjk["m_Material"]["m_PathID"]]
     atlas_id, material_id, font_id = (max(objects) + i for i in (1, 2, 3))
-    ref = {"m_FileID": 0, "m_PathID": atlas_id}
+    atlas_ref = {"m_FileID": 0, "m_PathID": atlas_id}
 
     _add_clone(atlas_source, atlas_id, atlas_source.read_typetree() | {"m_Name": f"{STATUS_FONT_ASSET} Atlas"})
     material = material_source.read_typetree() | {"m_Name": f"{STATUS_FONT_ASSET} Material"}
     material["m_SavedProperties"]["m_TexEnvs"] = [
-        (name, env | {"m_Texture": ref}) if name == "_MainTex" else (name, env) for name, env in material["m_SavedProperties"]["m_TexEnvs"]
+        (name, env | {"m_Texture": atlas_ref}) if name == "_MainTex" else (name, env) for name, env in material["m_SavedProperties"]["m_TexEnvs"]
     ]
     _add_clone(material_source, material_id, material)
     _add_clone(
@@ -158,7 +159,7 @@ def _add_status_font(fonts: list, cjk_obj, cjk: dict) -> StatusFont:
         | {
             "m_Name": STATUS_FONT_ASSET,
             "m_Material": {"m_FileID": 0, "m_PathID": material_id},
-            "m_AtlasTextures": [ref],
+            "m_AtlasTextures": [atlas_ref],
             "m_IsMultiAtlasTexturesEnabled": 0,
             "m_FallbackFontAssetTable": copy.deepcopy(_figtree_bold(fonts)["m_FallbackFontAssetTable"]),
         },
@@ -212,17 +213,28 @@ def add_cjk_fallback_serialized(data: bytes, deps: GameFiles, chars: set[str]) -
     return serialized.save(), status_font
 
 
+def status_labels(serialized) -> list:
+    """比赛场景里的状态标签文本组件：[(对象, typetree)]。"""
+    return [
+        (obj, tree)
+        for obj, tree in mono_behaviours(serialized)
+        if "m_text" in tree and serialized.objects[tree["m_GameObject"]["m_PathID"]].read_typetree()["m_Name"] == STATUS_LABEL
+    ]
+
+
 def use_status_font(scene: bytes, deps: GameFiles, status_font: StatusFont) -> bytes:
-    """把比赛场景里的状态标签（唯一关闭了 maskable 的文本）改用专用字体，并清除样式绑定，否则运行时字体又被样式改回去。
+    """把比赛场景里的状态标签改用专用字体，并清除样式绑定，否则运行时字体又被样式改回去。
 
     组件上的字号、对齐、字形样式与颜色都不动：样式只提供字体和与组件相同的字号。
     """
     serialized = load_serialized(scene, deps)
-    labels = [(obj, tree) for obj, tree in mono_behaviours(serialized) if "m_text" in tree and tree["m_Maskable"] == 0]
+    labels = status_labels(serialized)
     if not labels:
         raise ValueError("比赛场景里找不到状态标签，中文会被排行榜的遮罩裁掉；游戏可能改了界面")
     externals = serialized.externals
     for obj, tree in labels:
+        if tree["m_Maskable"] != 0:
+            raise ValueError(f"状态标签打开了 maskable，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
         if not tree.get(STYLE_FIELD):
             raise ValueError(f"状态标签没有样式绑定，与预期不符（对象 {obj.path_id}）；游戏可能改了界面")
         file_id = tree["m_fontAsset"]["m_FileID"]
@@ -245,3 +257,8 @@ def is_injected_serialized(data: bytes, deps: GameFiles) -> bool:
     cjk_id = _cjk_font(fonts)[0].path_id
     others = [tree for obj, tree in fonts if obj.path_id != cjk_id]
     return bool(others) and all(_has_fallback(tree, cjk_id) for tree in others)
+
+
+def is_injected_race_scene(scene: bytes, deps: GameFiles) -> bool:
+    """比赛场景是否已被注入。判据：原版的状态标签都绑定了样式，注入时清除。"""
+    return any(not tree.get(STYLE_FIELD) for _, tree in status_labels(load_serialized(scene, deps)))

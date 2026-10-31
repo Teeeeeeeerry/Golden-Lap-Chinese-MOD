@@ -3,14 +3,15 @@ import UnityPy
 
 from glzh.build import build
 from glzh.bundles import PACKER
+from glzh.bundles import mono_behaviours as serialized_behaviours
 from glzh.catalog import bundle_crcs
-from glzh.fonts import CJK_FONT_ASSET, LINE_METRICS, STATUS_FONT_ASSET, font_assets, load_serialized
+from glzh.fonts import CJK_FONT_ASSET, LINE_METRICS, STATUS_FONT_ASSET, font_assets, load_serialized, status_labels
 from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUNDLE
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
 from tests.test_catalog import resolve
-from tests.test_fonts import PRIVATE_USE, edit_serialized_font, fonts_by_id, scene_label_objects, scene_labels, serialized_fonts, serialized_raw
+from tests.test_fonts import PRIVATE_USE, edit_serialized_font, fonts_by_id, scene_labels, serialized_fonts, serialized_raw
 from tests.test_string_tables import mono_behaviours
 
 CAREER = 248174071668736
@@ -19,6 +20,7 @@ AA = "StreamingAssets/aa"
 
 OUR_NEW_GAME = "main_menu/our_new_game"
 STANDINGS = 5518036515758080  # Race UI 表的「Standings」
+IN_LAP = 32411775829250048  # Race UI 表的 status_indicators/in_lap
 
 
 def write_translations(directory, zh):
@@ -192,7 +194,7 @@ def test_build_refuses_when_ui_bundle_lacks_figtree_bold(fake_game, tmp_path):
 
 
 def status_font(game, outputs):
-    """构建产物 resources.assets 里的专用字体：(字体 typetree, 全部字体, 已加载的文件)。"""
+    """构建产物 resources.assets 里的专用字体：(字体 path_id, 全部字体 {path_id: typetree}, 已加载的文件)。"""
     serialized = load_serialized(outputs["resources.assets"], game)
     fonts = {obj.path_id: tree for obj, tree in font_assets(serialized)}
     return next(i for i, t in fonts.items() if t["m_Name"] == STATUS_FONT_ASSET), fonts, serialized
@@ -227,6 +229,9 @@ def test_build_points_every_status_label_at_dedicated_font(game, outputs):
     before = scene_labels(game.race_scene.read_bytes(), game)
     after = scene_labels(outputs["level2"], game)
     assert len(after) == 20 and after.keys() == before.keys()
+    # 关闭 maskable 的文本只有这些标签，别的文本不受影响
+    scene = load_serialized(game.race_scene.read_bytes(), game)
+    assert {o.path_id for o, t in serialized_behaviours(scene) if "m_text" in t and t["m_Maskable"] == 0} == after.keys()
     for path_id, tree in after.items():
         assert tree["m_fontAsset"]["m_PathID"] == status_id and tree["m_fontAsset"]["m_FileID"] == before[path_id]["m_fontAsset"]["m_FileID"]
         assert tree["m_sharedMaterial"] == {**tree["m_fontAsset"], "m_PathID": fonts[status_id]["m_Material"]["m_PathID"]}
@@ -240,18 +245,38 @@ def test_build_points_every_status_label_at_dedicated_font(game, outputs):
     assert all(raw_after[i] == raw for i, raw in raw_before.items() if i not in after)
 
 
-def edit_scene_labels(game, **fields):
+def edit_scene_labels(game, only_first=False, **fields):
     serialized = load_serialized(game.race_scene.read_bytes(), game)
-    for obj, tree in scene_label_objects(serialized):
+    labels = status_labels(serialized)
+    for obj, tree in labels[:1] if only_first else labels:
         obj.save_typetree({**tree, **fields})
     game.race_scene.write_bytes(serialized.save())
 
 
 def test_build_refuses_when_scene_has_no_status_labels(fake_game, tmp_path):
-    edit_scene_labels(fake_game, m_Maskable=1)
+    serialized = load_serialized(fake_game.race_scene.read_bytes(), fake_game)
+    for _, tree in status_labels(serialized):
+        go = serialized.objects[tree["m_GameObject"]["m_PathID"]]
+        go.save_typetree({**go.read_typetree(), "m_Name": "Renamed"})
+    fake_game.race_scene.write_bytes(serialized.save())
     write_translations(tmp_path, "生涯")
-    with pytest.raises(ValueError, match="状态标签"):
+    with pytest.raises(ValueError, match="找不到状态标签"):
         build(fake_game, tmp_path)
+
+
+def test_build_refuses_when_a_status_label_turned_maskable_on(fake_game, tmp_path):
+    edit_scene_labels(fake_game, only_first=True, m_Maskable=1)
+    write_translations(tmp_path, "生涯")
+    with pytest.raises(ValueError, match="maskable"):
+        build(fake_game, tmp_path)
+
+
+def test_build_refuses_status_label_translation_the_font_cannot_render(game, tmp_path):
+    write_translations(tmp_path, "生涯")
+    in_lap = {str(IN_LAP): {"en_hash": en_hash("IN LAP"), "zh": f"进站{PRIVATE_USE}", "status": "mt"}}
+    save_table(tmp_path, "Race UI", in_lap)
+    with pytest.raises(ValueError, match=PRIVATE_USE):
+        build(game, tmp_path)
 
 
 def test_build_refuses_when_status_label_is_not_bound_to_a_style(fake_game, tmp_path):

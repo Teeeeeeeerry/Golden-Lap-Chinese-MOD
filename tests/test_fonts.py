@@ -1,8 +1,7 @@
 import UnityPy
 import pytest
 
-from glzh.bundles import mono_behaviours
-from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars
+from glzh.fonts import CJK_FONT_ASSET, add_cjk_fallback, font_assets, load_serialized, missing_glyphs, required_chars, status_labels
 
 PRIVATE_USE = "\ue000"  # 任何字体都不会有字形的私用区字符
 
@@ -48,13 +47,8 @@ def serialized_fonts(data: bytes, game) -> dict[int, dict]:
     return {obj.path_id: tree for obj, tree in font_assets(load_serialized(data, game))}
 
 
-def scene_label_objects(serialized) -> list:
-    """关闭了 maskable 的文本组件：[(对象, typetree)]。"""
-    return [(o, t) for o, t in mono_behaviours(serialized) if "m_text" in t and t["m_Maskable"] == 0]
-
-
 def scene_labels(data: bytes, game) -> dict:
-    return {obj.path_id: tree for obj, tree in scene_label_objects(load_serialized(data, game))}
+    return {obj.path_id: tree for obj, tree in status_labels(load_serialized(data, game))}
 
 
 def serialized_raw(data: bytes, game) -> dict[int, bytes]:

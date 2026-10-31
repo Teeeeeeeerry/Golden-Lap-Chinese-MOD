@@ -70,6 +70,18 @@ def test_install_refuses_when_resources_assets_is_patched_but_backup_is_gone(fak
         install(fake_game, tmp_path / "new-backup")
 
 
+def test_install_refuses_when_race_scene_is_patched_but_backup_is_gone(fake_game, tmp_path):
+    original = fake_game.race_scene.read_bytes()
+    install(fake_game, tmp_path / "first")
+    patched = fake_game.race_scene.read_bytes()
+    restore(fake_game, tmp_path / "first")
+    assert fake_game.race_scene.read_bytes() == original
+    fake_game.race_scene.write_bytes(patched)  # 其余文件都是原版，只有 level2 留着注入后的内容
+    with pytest.raises(AlreadyPatched):
+        install(fake_game, tmp_path / "second")
+    assert not (tmp_path / "second/level2").exists()
+
+
 def test_install_migrates_backup_from_v0_0_9_layout(fake_game, game, originals, tmp_path):
     """v0.0.9 的备份与安装记录以 aa 目录为根，且不含 resources.assets。"""
     backup = tmp_path / "backup"
