@@ -2,7 +2,7 @@
 
 [b]虽然这是一个汉化插件但订阅它不会让游戏变成中文，也无需在游戏中启用（当然欢迎订阅就是了）。[/b]如果想完成汉化得去GitHub上下载release包或者用终端下载。
 
-游戏自带的 MOD 系统只能加载数据文本和图片，无法替换界面文本和字体，所以汉化无法通过创意工坊分发。请到项目主页下载：
+因为游戏自带的 MOD 系统只能加载数据文本和图片，无法替换界面文本和字体，所以汉化无法通过创意工坊分发。请到项目主页下载：
 
 [url=https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD]https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD[/url]
 
@@ -27,6 +27,8 @@
 [code]/bin/bash -c "$(curl -fsSL https://github.com/Teeeeeeeerry/Golden-Lap-Chinese-MOD/releases/latest/download/install.sh)" glzh restore[/code]
 
 也可以从 Releases 页面下载压缩包安装，步骤见项目主页。暂不支持 Windows。
+
+[h2]Windows版仍在开发中，理论上一周内会发布[/h2]
 
 [h2]许可[/h2]
 脚本：MIT；译文：CC BY-NC-SA 4.0。安装器只在玩家本地修改游戏文件，发布包不含任何游戏原始资源或字体。
