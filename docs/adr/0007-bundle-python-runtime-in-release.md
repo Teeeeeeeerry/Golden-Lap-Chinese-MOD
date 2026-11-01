@@ -1,6 +1,6 @@
 # 发布包内置独立 Python 运行环境
 
-**Status:** accepted
+**Status:** accepted；Windows x64 发布包同样内置运行环境，按相同方式组装；最低系统要求为 Windows 10
 
 此前，玩家要先自己装 Python 3.11 或更新版本（macOS 自带的通常是 3.9），安装器第一次运行时还要联网从 PyPI 下载依赖。不熟悉电脑的玩家大多卡在「装 Python」这一步；网络不好时，下载依赖也会失败。
 

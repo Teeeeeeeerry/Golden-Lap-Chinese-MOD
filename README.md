@@ -50,9 +50,9 @@ python3 -m venv .venv
 
 | 命令 | 作用 |
 | --- | --- |
-| `PYTHONPATH=src .venv/bin/python -m glzh validate` | 校验译文 |
-| `PYTHONPATH=src .venv/bin/python -m glzh diff [--write]` | 游戏更新后比对英文原文的变化 |
-| `PYTHONPATH=src .venv/bin/python -m glzh build <目录>` | 构建到仓库外的目录，不改动游戏 |
+| `PYTHONPATH=src:macos .venv/bin/python -m glzh_macos validate` | 校验译文 |
+| `PYTHONPATH=src:macos .venv/bin/python -m glzh_macos diff [--write]` | 游戏更新后比对英文原文的变化 |
+| `PYTHONPATH=src:macos .venv/bin/python -m glzh_macos build <目录>` | 构建到仓库外的目录，不改动游戏 |
 
 文档：
 

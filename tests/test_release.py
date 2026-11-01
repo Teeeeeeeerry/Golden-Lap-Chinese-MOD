@@ -2,6 +2,7 @@ import hashlib
 import os
 import stat
 import subprocess
+import sys
 import zipfile
 
 import pytest
@@ -15,10 +16,18 @@ PY = f"{RUNTIME}/bin/python3.12"
 @pytest.fixture(scope="module")
 def packages(tmp_path_factory):
     """各架构的发布包；第一次构建要联网下载运行环境，之后用缓存。"""
+    if sys.platform != "darwin":
+        pytest.skip("macOS 发布包只在 macOS 上构建和运行")
     return build_releases(tmp_path_factory.mktemp("dist"))
 
 
-HOST = "arm64" if subprocess.run(["/usr/sbin/sysctl", "-n", "hw.optional.arm64"], capture_output=True, text=True).stdout.strip() == "1" else "x86_64"
+def host_chip() -> str:
+    if sys.platform != "darwin":
+        return "x86_64"
+    return "arm64" if subprocess.run(["/usr/sbin/sysctl", "-n", "hw.optional.arm64"], capture_output=True, text=True).stdout.strip() == "1" else "x86_64"
+
+
+HOST = host_chip()
 
 
 @pytest.fixture(scope="module")
@@ -73,7 +82,8 @@ def test_release_contains_installer_restore_translations_readme_and_runtime(pack
         "README.md",
         "LICENSE",
         "requirements.txt",
-        "src/glzh/__main__.py",
+        "src/glzh/cli.py",
+        "src/glzh_macos/__main__.py",
         "translations/LICENSE",
         "translations/zh-Hans/Content.json",
         "translations/zh-Hans/Menus.json",
@@ -122,7 +132,7 @@ def test_check_runtime_rejects_anything_outside_the_allowlist(name):
 
 def run(script, game, home):
     """像玩家一样运行包里的脚本：PATH 里没有 Python 3.11+，HOME 是空的临时目录。"""
-    env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "GOLDEN_LAP_APP": str(game.app), "LANG": "zh_CN.UTF-8"}
+    env = {"HOME": str(home), "PATH": "/usr/bin:/bin", "GOLDEN_LAP_APP": str(game.data.parents[2]), "LANG": "zh_CN.UTF-8"}
     return subprocess.run(["/bin/bash", str(script)], env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600)
 
 
@@ -175,7 +185,7 @@ def one_line(dist, game, home, *args, base=None):
     env = {
         "HOME": str(home),
         "PATH": "/usr/bin:/bin",
-        "GOLDEN_LAP_APP": str(game.app),
+        "GOLDEN_LAP_APP": str(game.data.parents[2]),
         "LANG": "zh_CN.UTF-8",
         "GLZH_DOWNLOAD_BASE": base or dist.as_uri(),
     }

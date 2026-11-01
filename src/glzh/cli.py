@@ -1,27 +1,27 @@
-"""命令行入口：python -m glzh <命令>"""
+"""命令行入口，由各平台层的 __main__ 调用。"""
 
-import sys
 from pathlib import Path
 
 from glzh import diff, install, markup, string_tables, translations
 from glzh.build import build
-from glzh.game import GameFiles, app_path
+from glzh.game import GameFiles
+from glzh.platform import Platform
 
 REPO = Path(__file__).resolve().parents[2]
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], platform: Platform) -> int:
     commands = {"validate": cmd_validate, "build": cmd_build, "diff": cmd_diff, "install": cmd_install, "restore": cmd_restore}
     if len(argv) < 1 or argv[0] not in commands:
-        print(f"用法：python -m glzh {{{'|'.join(commands)}}}")
+        print(f"用法：{{{'|'.join(commands)}}}")
         return 2
-    return commands[argv[0]](argv[1:])
+    return commands[argv[0]](argv[1:], platform)
 
 
-def cmd_validate(args: list[str]) -> int:
+def cmd_validate(args: list[str], platform: Platform) -> int:
     """校验译文格式；本机装有游戏时，再核对占位符、标签等标记与英文原文一致，并列出明显比英文宽的译文。"""
     errors, warnings = translations.validate_dir(), []
-    src = GameFiles.from_app(app_path())
+    src = platform.game()
     if not errors and src.exists():
         english = string_tables.read_tables(src.english.read_bytes())
         errors = markup.markup_errors_dir(english)
@@ -38,16 +38,16 @@ def cmd_validate(args: list[str]) -> int:
     return 1 if errors else 0
 
 
-def cmd_build(args: list[str]) -> int:
-    """python -m glzh build <输出目录>：从本地游戏文件构建，写到输出目录，不改动游戏。"""
+def cmd_build(args: list[str], platform: Platform) -> int:
+    """build <输出目录>：从本地游戏文件构建，写到输出目录，不改动游戏。"""
     if len(args) != 1:
-        print("用法：python -m glzh build <输出目录>")
+        print("用法：build <输出目录>")
         return 2
     out = Path(args[0]).resolve()
     if out.is_relative_to(REPO):
         print("输出目录不能在仓库内：产物含游戏原始资源，不得提交（见 ADR 0002）")
         return 2
-    src = GameFiles.from_app(app_path())
+    src = platform.game()
     # 只报告不写回：构建在玩家本地运行，不改仓库译文
     diff_with_game(src)
     for rel, data in build(src).items():
@@ -65,52 +65,58 @@ def diff_with_game(src: GameFiles) -> dict[str, diff.TableDiff]:
     return diffs
 
 
-def cmd_diff(args: list[str]) -> int:
-    """python -m glzh diff [--write]：游戏更新后列出待译、待复核、废弃的条目；--write 把改动条目置 stale 写回。"""
+def cmd_diff(args: list[str], platform: Platform) -> int:
+    """diff [--write]：游戏更新后列出待译、待复核、废弃的条目；--write 把改动条目置 stale 写回。"""
     if args not in ([], ["--write"]):
-        print("用法：python -m glzh diff [--write]")
+        print("用法：diff [--write]")
         return 2
     # 只做格式校验：标记核对以当前英文为准，原文改动的条目正是这里要找出来的
     errors = translations.validate_dir()
     if errors:
         print("\n".join(errors))
         return 1
-    diffs = diff_with_game(GameFiles.from_app(app_path()))
+    diffs = diff_with_game(platform.game())
     if args == ["--write"]:
         for table, d in diffs.items():
             translations.save_table(translations.DEFAULT_DIR, table, d.updated)
     return 0
 
 
-def cmd_install(args: list[str]) -> int:
-    """python -m glzh install：备份原始文件并把汉化注入本地游戏，可重复运行。"""
-    src = GameFiles.from_app(app_path())
+def cmd_install(args: list[str], platform: Platform) -> int:
+    """install：备份原始文件并把汉化注入本地游戏，可重复运行。"""
+    src = platform.game()
     if not src.exists():
-        print(f"没有在 {src.data} 找到 Golden Lap。请确认已在 Steam 中安装，或用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
+        print(f"没有在 {src.data} 找到 Golden Lap。{platform.locate_hint}")
         return 1
-    print(f"游戏位置：{src.app}")
+    if problem := platform.preflight():
+        print(problem)
+        return 1
+    print(f"游戏位置：{src.data}")
     print("译文覆盖情况（未翻译的条目显示英文）：")
     diff_with_game(src)
     print("正在备份并注入，ui 包较大，约需半分钟……")
     try:
-        written = install.install(src)
+        written = install.install(src, platform.backup_dir)
     except install.AlreadyPatched as e:
         print(e)
         return 1
     for rel in written:
         print(f"已写入 {rel}")
-    print(f"完成。原始文件备份在 {install.BACKUP_DIR}。进入游戏，在设置的语言选项中选择“简体中文”。")
+    print(f"完成。原始文件备份在 {platform.backup_dir}。进入游戏，在设置的语言选项中选择“简体中文”。")
     return 0
 
 
-def cmd_restore(args: list[str]) -> int:
-    """python -m glzh restore：把游戏恢复到未汉化状态。"""
-    src = GameFiles.from_app(app_path())
+def cmd_restore(args: list[str], platform: Platform) -> int:
+    """restore：把游戏恢复到未汉化状态。"""
+    src = platform.game()
     if not src.catalog.exists():
-        print(f"没有在 {src.data} 找到 Golden Lap。请用环境变量 GOLDEN_LAP_APP 指定 goldenlap.app 的路径。")
+        print(f"没有在 {src.data} 找到 Golden Lap。{platform.locate_hint}")
+        return 1
+    if problem := platform.preflight():
+        print(problem)
         return 1
     try:
-        restored, skipped = install.restore(src)
+        restored, skipped = install.restore(src, platform.backup_dir)
     except (install.NotInstalled, install.BackupIncomplete) as e:
         print(e)
         return 1
@@ -120,7 +126,3 @@ def cmd_restore(args: list[str]) -> int:
         print(f"已跳过 {rel}（已被游戏更新或校验覆盖，本就是原版）")
     print("完成。游戏已恢复为未汉化状态，语言选项中的土耳其语也已恢复。")
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))

@@ -37,8 +37,12 @@ _Avoid_: 数据 MOD、工坊 MOD
 ### 项目侧
 
 **安装器**:
-在玩家本地读取游戏文件、就地注入译文并为界面字体挂上中文后备字体、并可还原的程序。本项目不做运行时注入，故无常驻插件。玩家通过一行安装命令（下载 Release 中的 `install.sh`，按芯片取发布包并校验 sha256）或双击发布包中的 `install.command` 运行它。
+在玩家本地读取游戏文件、就地注入译文并为界面字体挂上中文后备字体、并可还原的程序。本项目不做运行时注入，故无常驻插件。macOS 玩家通过一行安装命令（下载 Release 中的 `install.sh`，按芯片取发布包并校验 sha256）或双击发布包中的 `install.command` 运行它；Windows 玩家双击发布包中的 `install.bat` 运行它。
 _Avoid_: 插件、hook、补丁器、mod 本体
+
+**平台层**:
+安装器中只属于一个系统的部分：查找游戏、游戏文件布局、备份位置、运行前检查。macOS 与 Windows 各维护一份，与平台无关的注入逻辑只有一份。
+_Avoid_: 适配器、平台代码
 
 **状态标签**:
 排行榜每行右侧的深色标签，显示赛车状态：进站圈、出站圈、进站、退赛。它关闭了 maskable 才露在排行榜的遮罩面板外（文本组件 `StatusLabelText`）。
@@ -65,7 +69,7 @@ _Avoid_: 字符串、词条、entry
 _Avoid_: 审核状态、质量等级
 
 **发布包**:
-发到 GitHub Release 的 zip，含安装器、还原脚本、源码、译文、说明，以及内置的 Python 运行环境（ADR 0007），按芯片架构分包；不含游戏原始资源与字体。由 `scripts/release.py` 生成，同时生成一行安装命令用的 `install.sh`（写有版本号和各包的 sha256），三者一起上传到 GitHub Release。
+发到 GitHub Release 的 zip，含安装器、还原脚本、源码、译文、说明，以及内置的 Python 运行环境（ADR 0007），按系统与芯片架构分包（macOS arm64、macOS x86_64、Windows x64）；不含游戏原始资源与字体。由 `scripts/release.py` 生成，同时生成 macOS 一行安装命令用的 `install.sh`（写有版本号和各 macOS 包的 sha256），一起上传到同一个 GitHub Release。
 _Avoid_: 安装包、补丁包
 
 **更新比对**:

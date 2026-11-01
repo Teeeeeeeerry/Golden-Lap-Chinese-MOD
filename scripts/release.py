@@ -29,6 +29,7 @@ LAYOUT = [
     ("macos/restore.command", "restore.command"),
     ("macos/_env.sh", "_env.sh"),
     ("src/glzh", "src/glzh"),
+    ("macos/glzh_macos", "src/glzh_macos"),
     ("translations", "translations"),
     ("requirements.txt", "requirements.txt"),
     ("docs/release-README.md", "README.md"),
