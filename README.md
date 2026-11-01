@@ -54,6 +54,8 @@ python3 -m venv .venv
 | `PYTHONPATH=src:macos .venv/bin/python -m glzh_macos diff [--write]` | 游戏更新后比对英文原文的变化 |
 | `PYTHONPATH=src:macos .venv/bin/python -m glzh_macos build <目录>` | 构建到仓库外的目录，不改动游戏 |
 
+Windows 上用 `windows` 代替 `macos`、`glzh_windows` 代替 `glzh_macos`，`PYTHONPATH` 用 `src;windows`。
+
 文档：
 
 - [译文数据格式](docs/translation-format.md)

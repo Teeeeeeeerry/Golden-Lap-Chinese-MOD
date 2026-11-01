@@ -17,6 +17,7 @@ class GameFiles:
 
     data: Path
     build_target: str  # Addressables 目录下资源包所在的目录名，按平台不同
+    il2cpp: bool = False  # IL2CPP 打包的游戏没有 Managed 目录
 
     @property
     def aa(self) -> Path:
@@ -79,8 +80,9 @@ class GameFiles:
         return [self.catalog, self.english, self.turkish, self.locales, self.shared, self.ui, self.resources, self.race_scene]
 
     def exists(self) -> bool:
-        """原始文件与只读依赖（程序集、globalgamemanagers.assets）都在。"""
+        """原始文件与只读依赖（globalgamemanagers.assets，以及 Mono 版的程序集）都在。"""
+        deps = [self.globalgamemanagers] + ([] if self.il2cpp else [self.managed])
         try:
-            return all(path.exists() for path in self.inputs + [self.globalgamemanagers, self.managed])
+            return all(path.exists() for path in self.inputs + deps)
         except FileNotFoundError:
             return False
