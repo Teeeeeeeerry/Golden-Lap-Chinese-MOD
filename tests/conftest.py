@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from glzh.game import GameFiles, app_path
-from glzh.install import BACKUP_DIR, MANIFEST
+from glzh.game import GameFiles
+from glzh.install import MANIFEST
+from glzh_macos import BACKUP_DIR, app_path, game_files
 
 
 def copy_game(src: GameFiles, app: Path, backup_dir: Path | None = None) -> GameFiles:
     """把构建需要的游戏文件拷进 app；backup_dir 中有的文件优先取那里的版本。"""
-    files = GameFiles.from_app(app)
+    files = game_files(app)
     for path in src.inputs + [src.globalgamemanagers]:
         rel = path.relative_to(src.data)
         dst = files.data / rel
@@ -27,7 +28,7 @@ def game(tmp_path_factory) -> GameFiles:
 
     本机装过汉化时，游戏里是注入后的文件，改用安装器备份拼出一份原版副本。
     """
-    files = GameFiles.from_app(app_path())
+    files = game_files(app_path())
     if not files.exists():
         pytest.skip("未找到本地 Golden Lap，跳过依赖游戏文件的测试")
     manifest = BACKUP_DIR / MANIFEST

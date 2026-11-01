@@ -3,7 +3,7 @@
 备份目录布局与游戏的 Data 目录一致，便于直接作为构建输入：
 
     <备份目录>/StreamingAssets/aa/catalog.json
-    <备份目录>/StreamingAssets/aa/StandaloneOSX/<被改动的包与英文字符串表包>
+    <备份目录>/StreamingAssets/aa/<资源包目录>/<被改动的包与英文字符串表包>
     <备份目录>/resources.assets
     <备份目录>/level2
     <备份目录>/patched.json   上次写入游戏的各文件 sha256，键为相对 Data 目录的路径
@@ -18,6 +18,7 @@ import hashlib
 import json
 import os
 import shutil
+from dataclasses import replace
 from pathlib import Path
 
 from glzh import translations
@@ -26,7 +27,6 @@ from glzh.catalog import bundle_crcs
 from glzh.fonts import is_injected_race_scene, is_injected_serialized
 from glzh.game import AA_DIR, UI_BUNDLE_GLOB, GameFiles
 
-BACKUP_DIR = Path.home() / "Library/Application Support/GoldenLapZH/backup"
 MANIFEST = "patched.json"
 
 
@@ -54,27 +54,28 @@ def _read_manifest(backup_dir: Path) -> dict[str, str]:
     return json.loads(path.read_text()) if path.exists() else {}
 
 
-def _migrate_aa_rooted_backup(backup_dir: Path) -> None:
+def _migrate_aa_rooted_backup(backup_dir: Path, build_target: str) -> None:
     """把 v0.0.9 及以前以 aa 目录为根的备份与安装记录，迁移成以 Data 目录为根。
 
     先改写安装记录、再逐个移动文件，两步都可重复执行：中途中断后重跑会接着完成。
     """
     def is_aa_rooted(rel: str) -> bool:
-        # 旧键形如 catalog.json、StandaloneOSX/…；新布局中 aa 之外的只有 resources.assets 和 level2
+        # 旧键形如 catalog.json、<资源包目录>/…；新布局中 aa 之外的只有 resources.assets 和 level2
         return not rel.startswith(f"{AA_DIR}/") and rel not in ("resources.assets", "level2")
 
     patched = _read_manifest(backup_dir)
     if any(is_aa_rooted(rel) for rel in patched):
         migrated = {f"{AA_DIR}/{rel}" if is_aa_rooted(rel) else rel: digest for rel, digest in patched.items()}
         (backup_dir / MANIFEST).write_text(json.dumps(migrated, indent=2))
-    old_files = [backup_dir / "catalog.json"] + sorted((backup_dir / "StandaloneOSX").glob("*"))
+    old_bundles = backup_dir / build_target
+    old_files = [backup_dir / "catalog.json"] + sorted(old_bundles.glob("*"))
     for path in old_files:
         if path.is_file():
             dst = backup_dir / AA_DIR / path.relative_to(backup_dir)
             dst.parent.mkdir(parents=True, exist_ok=True)
             os.replace(path, dst)
-    if (backup_dir / "StandaloneOSX").is_dir() and not any((backup_dir / "StandaloneOSX").iterdir()):
-        (backup_dir / "StandaloneOSX").rmdir()
+    if old_bundles.is_dir() and not any(old_bundles.iterdir()):
+        old_bundles.rmdir()
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -83,10 +84,10 @@ def _write_atomic(path: Path, data: bytes) -> None:
     os.replace(tmp, path)
 
 
-def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Path = translations.DEFAULT_DIR) -> list[str]:
+def install(game: GameFiles, backup_dir: Path, translations_dir: Path = translations.DEFAULT_DIR) -> list[str]:
     """备份并注入，返回写入游戏的文件（相对 Data 目录）。"""
-    _migrate_aa_rooted_backup(backup_dir)
-    backup = GameFiles(backup_dir)
+    _migrate_aa_rooted_backup(backup_dir, game.build_target)
+    backup = replace(game, data=backup_dir)
     manifest_path = backup_dir / MANIFEST
     patched = _read_manifest(backup_dir)
     to_backup = []
@@ -128,7 +129,7 @@ def install(game: GameFiles, backup_dir: Path = BACKUP_DIR, translations_dir: Pa
     return sorted(outputs)
 
 
-def restore(game: GameFiles, backup_dir: Path = BACKUP_DIR) -> tuple[list[str], list[str]]:
+def restore(game: GameFiles, backup_dir: Path) -> tuple[list[str], list[str]]:
     """把安装器写入的文件从备份拷回游戏，返回 (已还原, 已跳过) 的文件（相对 Data 目录）。
 
     只还原内容仍等于安装记录的文件：已被游戏更新或"验证文件完整性"覆盖的文件本就是原版，
@@ -136,7 +137,7 @@ def restore(game: GameFiles, backup_dir: Path = BACKUP_DIR) -> tuple[list[str], 
     """
     if not game.catalog.exists():
         raise FileNotFoundError(f"没有在 {game.data} 找到 Golden Lap，未做任何改动")
-    _migrate_aa_rooted_backup(backup_dir)
+    _migrate_aa_rooted_backup(backup_dir, game.build_target)
     patched = _read_manifest(backup_dir)
     if not patched:
         raise NotInstalled(f"没有找到安装记录（{backup_dir / MANIFEST}），未做任何改动。若游戏仍显示汉化，{VERIFY_HINT}")

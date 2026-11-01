@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from glzh.steam import APP_ID, find_app, library_paths
+from glzh.steam import APP_ID, library_paths
+from glzh_macos import find_app
 
 VDF = r'''"libraryfolders"
 {
