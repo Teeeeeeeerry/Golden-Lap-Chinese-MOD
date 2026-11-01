@@ -52,3 +52,8 @@ def test_existing_game_does_not_need_managed_assemblies(tmp_path):
     for path in (game.catalog, game.resources, game.race_scene, game.globalgamemanagers):
         path.write_bytes(b"")
     assert game.exists()
+
+
+def test_preflight_stops_while_the_game_is_running():
+    assert "正在运行" in Windows(steam_path=lambda: None, environ={}, running=lambda: True).preflight()
+    assert Windows(steam_path=lambda: None, environ={}, running=lambda: False).preflight() is None
