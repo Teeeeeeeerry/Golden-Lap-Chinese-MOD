@@ -6,14 +6,18 @@
 
 - **标题**：Golden Lap 简体中文汉化（说明页 / Chinese Localization Info）
 - **描述**：`description.txt`（Steam BBCode 格式，直接粘贴）
-- **预览图**：一张汉化后的游戏主菜单截图，自行截取，不放进仓库。
-- **MOD 本体**：工坊物品需要以官方 MOD 的形式上传。放一个不含任何数据改动的最小 MOD，不要放译文或游戏资源。注意：官方 MOD 同一时间只能启用一个，玩家若启用了这个说明物品，会顶掉原本启用的 MOD，所以简介里要写明“无需启用”。
+- **预览图**：一张汉化后的游戏主菜单截图，命名为 `header_image.png` 或 `header_image.jpg`，自行截取，不放进仓库。
+- **MOD 本体**：工坊物品需要以官方 MOD 的形式上传。放一个不含任何数据改动的最小 MOD，不要放译文或游戏资源。官方文档没有说明只放预览图能否提交，需要先私密提交一次确认；不行的话按文档下载 `BaseMod.zip` 做最小 MOD，使用前先看它附带的许可。注意：官方 MOD 同一时间只能启用一个，玩家若启用了这个说明物品，会顶掉原本启用的 MOD，所以简介里要写明“无需启用”。
 
 ## 上传步骤（人工）
 
-1. 本仓库没有收录官方 MOD 的目录结构与上传工具说明。请先查阅开发商 Funselektor 发布的官方 MOD 制作指南（可从游戏的 Steam 社区页、官方 Discord 获取），按指南新建一个最小 MOD，名称和简介写成说明页的标题。
-2. 用指南中的上传方式把它发布到创意工坊，可见性先设为“仅自己可见”。
-3. 在 Steam 物品页上粘贴 `description.txt`，上传预览图，确认链接指向项目的 Releases 页面。
-4. 检查无误后改为“公开”。
+步骤来自官方的 [Golden Lap Modding Documentation](https://funselektor.notion.site/Golden-Lap-Modding-Documentation-2bc95ac5902b492fa3ca204cddde0a4e)。
 
-每次发布新版本后，不需要更新工坊物品：链接始终指向最新的 Releases。
+1. 在 Steam 库把筛选切到「工具」，安装并启动 `Golden Lap - Workshop Items Uploader`。
+2. 输入标题，按 **Create Item**，工具会分配一个 ID。
+3. 填写 Title，把 `description.txt` 粘贴到 Description，Visibility 先设为 Private 或 Friends Only。
+4. 按 **Open folder**，把 MOD 内容和预览图放进打开的数据文件夹。
+5. 回到工具按 **Submit**。
+6. 到 Steam 物品页检查文字和链接，确认无误后把可见性改为 Public。
+
+每次发布新版本后，不需要更新工坊物品：一行命令始终安装最新版，链接指向项目主页。如果安装方式变了，才需要更新 `description.txt` 并重新粘贴。
