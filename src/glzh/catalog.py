@@ -33,7 +33,7 @@ def _crc_matches(catalog: dict, extra: bytes) -> dict[str, re.Match]:
         end = starts[starts.index(data_offset) + 1]
         match = CRC_PATTERN.search(extra, data_offset, end)
         if match:
-            found[re.split(r"[/\]", path)[-1]] = match  # Windows 版 catalog 的路径用反斜杠
+            found[path.replace("\\", "/").rsplit("/", 1)[-1]] = match  # Windows 版 catalog 的路径用反斜杠
     return found
 
 
