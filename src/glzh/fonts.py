@@ -17,7 +17,7 @@
 import copy
 import io
 from dataclasses import dataclass
-from pathlib import PurePath
+from pathlib import Path, PurePath
 
 import UnityPy
 from fontTools.ttLib import TTFont
@@ -33,6 +33,7 @@ DYNAMIC = 1  # m_AtlasPopulationMode：运行时按需生成字形
 STATUS_LABEL = "StatusLabelText"  # 排行榜状态标签的文本组件所在的 GameObject
 STATUS_FONT_ASSET = "GoldenLapZH-StatusLabel SDF"
 STYLE_FIELD = "reflectedTextStyleField"  # FunTextTMP 的文本样式绑定，运行时按样式重设字体
+BORROWED_CLASSES = ("TMP_FontAsset", "FunTextTMP")  # IL2CPP 版要读写的脚本类型，ui 包内嵌了它们的 typetree（见 ADR 0009）
 
 
 @dataclass(frozen=True)
@@ -221,17 +222,56 @@ def add_cjk_fallback(bundle: bytes) -> bytes:
     return env.file.save(packer=PACKER)
 
 
+def class_nodes(ui_bundle: bytes) -> dict:
+    """ui 包内嵌的 typetree：脚本类名 → 节点，只取 BORROWED_CLASSES 中的类型。"""
+    found, seen = {}, set()
+    for obj in UnityPy.load(ui_bundle).objects:
+        if obj.type.name != "MonoBehaviour" or not (obj.serialized_type and obj.serialized_type.node) or id(obj.serialized_type) in seen:
+            continue
+        seen.add(id(obj.serialized_type))  # 同一类型的对象共用节点，每种只看一个
+        name = obj.parse_monobehaviour_head().m_Script.deref_parse_as_object().m_ClassName
+        if name in BORROWED_CLASSES:
+            found.setdefault(name, obj.serialized_type.node)
+            if len(found) == len(BORROWED_CLASSES):
+                break
+    return found
+
+
+class BorrowedTypeTrees:
+    """代替 UnityPy 的 typetree 生成器：只提供从 ui 包借来的类型，其余 MonoBehaviour 不解析（见 ADR 0009）。"""
+
+    def __init__(self, nodes: dict):
+        if missing := set(BORROWED_CLASSES) - nodes.keys():
+            raise ValueError(f"ui 包里找不到这些类型的 typetree：{', '.join(sorted(missing))}；游戏可能改了界面，未改动游戏文件")
+        self.nodes = nodes
+
+    def get_nodes_up(self, assembly: str, fullname: str):
+        return self.nodes.get(fullname.rsplit(".", 1)[-1])
+
+
+_borrowed: dict[str, BorrowedTypeTrees] = {}  # 按 ui 包文件名：名字含内容哈希，注入前后类型信息相同
+
+
+def _borrowed_type_trees(ui: Path) -> BorrowedTypeTrees:
+    if ui.name not in _borrowed:  # ui 包很大，同一版本的游戏只解析一遍
+        _borrowed[ui.name] = BorrowedTypeTrees(class_nodes(ui.read_bytes()))
+    return _borrowed[ui.name]
+
+
 def load_serialized(data: bytes, deps: GameFiles):
     """加载 resources.assets、level2 这类没有内嵌类型信息的序列化文件。
 
-    deps 提供只读依赖：程序集（生成 typetree）与 globalgamemanagers.assets（脚本引用）。
+    deps 提供只读依赖：typetree 的来源（Mono 版的程序集或 IL2CPP 版的 ui 包）与 globalgamemanagers.assets（脚本引用）。
     """
     env = UnityPy.Environment()
     env.load_file(deps.globalgamemanagers.read_bytes(), name=deps.globalgamemanagers.name, is_dependency=True)
     serialized = env.load_file(data, name="serialized")
-    generator = TypeTreeGenerator(serialized.unity_version)
-    generator.load_local_dll_folder(str(deps.managed))
-    env.typetree_generator = generator
+    if deps.il2cpp:
+        env.typetree_generator = _borrowed_type_trees(deps.ui)
+    else:
+        generator = TypeTreeGenerator(serialized.unity_version)
+        generator.load_local_dll_folder(str(deps.managed))
+        env.typetree_generator = generator
     return serialized
 
 
