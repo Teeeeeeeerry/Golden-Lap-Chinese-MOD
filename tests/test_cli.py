@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from glzh import install
 from glzh.cli import main
 from glzh.game import GameFiles
@@ -52,3 +54,33 @@ def test_install_stops_before_touching_anything_when_preflight_fails(tmp_path, c
 
 def fail_if_called():
     raise AssertionError("运行前检查未通过时不应改动游戏")
+
+
+def in_use(*_):
+    raise PermissionError(13, "占用", "level2")
+
+
+def test_install_explains_a_file_in_use(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(GameFiles, "exists", lambda self: True)
+    monkeypatch.setattr("glzh.cli.diff_with_game", lambda _: {})
+    monkeypatch.setattr(install, "install", in_use)
+    assert main(["install"], FakePlatform(tmp_path)) == 1
+    assert "level2" in capsys.readouterr().out
+
+
+def test_restore_explains_a_file_in_use(tmp_path, capsys, monkeypatch):
+    platform = FakePlatform(tmp_path)
+    platform.files.catalog.parent.mkdir(parents=True)
+    platform.files.catalog.write_text("{}")
+    monkeypatch.setattr(install, "restore", in_use)
+    assert main(["restore"], platform) == 1
+    assert "level2" in capsys.readouterr().out
+
+
+def test_failed_write_leaves_no_temporary_file(tmp_path, monkeypatch):
+    target = tmp_path / "level2"
+    target.write_bytes(b"old")
+    monkeypatch.setattr("os.replace", in_use)
+    with pytest.raises(PermissionError):
+        install._write_atomic(target, b"new")
+    assert target.read_bytes() == b"old" and [p.name for p in tmp_path.iterdir()] == ["level2"]

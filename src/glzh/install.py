@@ -81,7 +81,11 @@ def _migrate_aa_rooted_backup(backup_dir: Path, build_target: str) -> None:
 def _write_atomic(path: Path, data: bytes) -> None:
     tmp = path.with_name(path.name + ".glzh-tmp")
     tmp.write_bytes(data)
-    os.replace(tmp, path)
+    try:
+        os.replace(tmp, path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def install(game: GameFiles, backup_dir: Path, translations_dir: Path = translations.DEFAULT_DIR) -> list[str]:

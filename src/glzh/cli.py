@@ -8,6 +8,7 @@ from glzh.game import GameFiles
 from glzh.platform import Platform
 
 REPO = Path(__file__).resolve().parents[2]
+FILE_IN_USE = "有游戏文件被占用（{0}）。请退出游戏和正在扫描它的程序后重新运行，重新运行会接着完成。"
 
 
 def main(argv: list[str], platform: Platform) -> int:
@@ -100,6 +101,9 @@ def cmd_install(args: list[str], platform: Platform) -> int:
     except install.AlreadyPatched as e:
         print(e)
         return 1
+    except PermissionError as e:
+        print(FILE_IN_USE.format(e.filename))
+        return 1
     for rel in written:
         print(f"已写入 {rel}")
     print(f"完成。原始文件备份在 {platform.backup_dir}。进入游戏，在设置的语言选项中选择“简体中文”。")
@@ -119,6 +123,9 @@ def cmd_restore(args: list[str], platform: Platform) -> int:
         restored, skipped = install.restore(src, platform.backup_dir)
     except (install.NotInstalled, install.BackupIncomplete) as e:
         print(e)
+        return 1
+    except PermissionError as e:
+        print(FILE_IN_USE.format(e.filename))
         return 1
     for rel in restored:
         print(f"已还原 {rel}")

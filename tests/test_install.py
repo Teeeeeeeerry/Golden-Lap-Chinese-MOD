@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 
 import pytest
@@ -148,3 +149,26 @@ def test_install_upgrades_v0_0_11_resources_assets_to_multi_atlas(fake_game, gam
     assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
     restore(fake_game, backup)
     assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
+
+
+def test_interrupted_install_finishes_on_the_next_run(fake_game, originals, tmp_path, monkeypatch):
+    """写到一半文件被占用：重新运行后结果与一次装完相同，还原后回到原版。"""
+    backup = tmp_path / "backup"
+    replace, calls = os.replace, []
+
+    def busy_on_third(src, dst):
+        calls.append(dst)
+        if len(calls) == 3:
+            raise PermissionError(13, "占用", str(dst))
+        replace(src, dst)
+
+    monkeypatch.setattr("os.replace", busy_on_third)
+    with pytest.raises(PermissionError):
+        install(fake_game, backup)
+    monkeypatch.setattr("os.replace", replace)
+    assert not list(fake_game.data.rglob("*.glzh-tmp"))
+
+    written = install(fake_game, backup)
+    assert all(sha(backup / rel) == digest for rel, digest in originals.items())
+    restore(fake_game, backup)
+    assert {rel: sha(fake_game.data / rel) for rel in written} == originals
