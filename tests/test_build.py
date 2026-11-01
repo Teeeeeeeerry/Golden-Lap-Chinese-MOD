@@ -10,6 +10,7 @@ from glzh.game import ENGLISH_BUNDLE, LOCALES_BUNDLE, SHARED_BUNDLE, TURKISH_BUN
 from glzh.hardcoded import entry_id, save_hardcoded
 from glzh.string_tables import read_tables
 from glzh.translations import TABLES, en_hash, save_table
+from tests.conftest import TARGET
 from tests.test_catalog import resolve
 from tests.test_fonts import PRIVATE_USE, edit_serialized_font, fonts_by_id, scene_labels, serialized_fonts, serialized_raw
 from tests.test_string_tables import mono_behaviours
@@ -41,30 +42,30 @@ def outputs(game, tmp_path_factory):
 def test_build_outputs_keep_original_file_names(game, outputs):
     assert set(outputs) == {
         f"{AA}/catalog.json",
-        f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}",
-        f"{AA}/StandaloneOSX/{LOCALES_BUNDLE}",
-        f"{AA}/StandaloneOSX/{game.ui.name}",
-        f"{AA}/StandaloneOSX/{SHARED_BUNDLE}",
-        f"{AA}/StandaloneOSX/{ENGLISH_BUNDLE}",
+        f"{AA}/{TARGET}/{TURKISH_BUNDLE}",
+        f"{AA}/{TARGET}/{LOCALES_BUNDLE}",
+        f"{AA}/{TARGET}/{game.ui.name}",
+        f"{AA}/{TARGET}/{SHARED_BUNDLE}",
+        f"{AA}/{TARGET}/{ENGLISH_BUNDLE}",
         "resources.assets",
         "level2",
     }
 
 
 def test_build_writes_translations_with_english_fallback(game, outputs):
-    tables = read_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])
+    tables = read_tables(outputs[f"{AA}/{TARGET}/{TURKISH_BUNDLE}"])
     english = read_tables(game.english.read_bytes())
     assert tables["Menus"][CAREER] == "生涯"
     assert tables["Race UI"][STANDINGS] == "排名"
     # 未翻译的条目显示英文原文，而不是土耳其语
     translated = {("Menus", CAREER), ("Race UI", STANDINGS)}
     assert all(tables[t][i] == english[t][i] for t in TABLES for i in english[t] if (t, i) not in translated)
-    names = [t.get("m_LocaleName") for t in mono_behaviours(outputs[f"{AA}/StandaloneOSX/{LOCALES_BUNDLE}"]).values()]
+    names = [t.get("m_LocaleName") for t in mono_behaviours(outputs[f"{AA}/{TARGET}/{LOCALES_BUNDLE}"]).values()]
     assert "简体中文" in names and "Turkish" not in names
 
 
 def test_build_injects_cjk_fallback_and_zeroes_crc_of_patched_bundles(game, outputs):
-    fonts = fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])
+    fonts = fonts_by_id(outputs[f"{AA}/{TARGET}/{game.ui.name}"])
     cjk_id = next(i for i, t in fonts.items() if t["m_Name"] == "NotoSansSC-Black SDF")
     assert all(
         any((ref["m_FileID"], ref["m_PathID"]) == (0, cjk_id) for ref in t["m_FallbackFontAssetTable"]) for i, t in fonts.items() if i != cjk_id
@@ -128,7 +129,7 @@ def test_build_localizes_hardcoded_text_without_changing_other_languages(game, o
     """写死的「our new game」改为引用新增的 Menus 条目：英文行写原文，土耳其语行写中文。"""
     m_id = entry_id(OUR_NEW_GAME)
     before = text_components(game.ui.read_bytes())
-    after = text_components(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])
+    after = text_components(outputs[f"{AA}/{TARGET}/{game.ui.name}"])
     target = [i for i, t in before.items() if t["m_text"] == "our new game"]
     assert len(target) == 1
     ref = after[target[0]]["textLocalization"]
@@ -141,18 +142,18 @@ def test_build_localizes_hardcoded_text_without_changing_other_languages(game, o
     labels = {o.path_id for o, _ in status_labels(UnityPy.load(game.ui.read_bytes()))}  # 状态标签另有测试
     assert all(after[i] == t for i, t in before.items() if i != target[0] and i not in labels)
 
-    shared = [t for t in mono_behaviours(outputs[f"{AA}/StandaloneOSX/{SHARED_BUNDLE}"]).values() if t.get("m_TableCollectionName") == "Menus"][0]
+    shared = [t for t in mono_behaviours(outputs[f"{AA}/{TARGET}/{SHARED_BUNDLE}"]).values() if t.get("m_TableCollectionName") == "Menus"][0]
     assert {"m_Id": m_id, "m_Key": f"glzh/{OUR_NEW_GAME}", "m_Metadata": {"m_Items": []}} in shared["m_Entries"]
-    english = read_tables(outputs[f"{AA}/StandaloneOSX/{ENGLISH_BUNDLE}"])
+    english = read_tables(outputs[f"{AA}/{TARGET}/{ENGLISH_BUNDLE}"])
     original_english = read_tables(game.english.read_bytes())
     assert english["Menus"][m_id] == "our new game"
     assert {t: {i: v for i, v in rows.items() if i != m_id} for t, rows in english.items()} == original_english
-    assert read_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])["Menus"][m_id] == "我们的新游戏"
+    assert read_tables(outputs[f"{AA}/{TARGET}/{TURKISH_BUNDLE}"])["Menus"][m_id] == "我们的新游戏"
 
 
 def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
     """单张 1024² 动态图集只装得下约 90 个中文字，写满后新字成方框；开启多图集后 TMP 会加开新图集。"""
-    for fonts in (fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
+    for fonts in (fonts_by_id(outputs[f"{AA}/{TARGET}/{game.ui.name}"]), serialized_fonts(outputs["resources.assets"], game)):
         cjk = next(t for t in fonts.values() if t["m_Name"] == CJK_FONT_ASSET)
         assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
 
@@ -160,7 +161,7 @@ def test_build_enables_multi_atlas_on_cjk_font(game, outputs):
 def test_build_aligns_cjk_line_metrics_with_figtree(game, outputs):
     """思源黑体上沿 1.16em、Figtree 0.95em：一行里有中文，TMP 取最大上沿，基线下移，与旁边纯数字的文本框对不齐。"""
     pairs = (
-        (fonts_by_id(game.ui.read_bytes()), fonts_by_id(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])),
+        (fonts_by_id(game.ui.read_bytes()), fonts_by_id(outputs[f"{AA}/{TARGET}/{game.ui.name}"])),
         (serialized_fonts(game.resources.read_bytes(), game), serialized_fonts(outputs["resources.assets"], game)),
     )
     for before, after in pairs:
@@ -249,7 +250,7 @@ def test_build_points_every_status_label_at_dedicated_font(game, outputs):
 
 def test_build_points_prefab_status_label_at_font_in_the_ui_bundle(game, outputs):
     """包不能引用 resources.assets 的对象，预制体的标签要用包内自己的专用字体，配置与场景用的那份相同。"""
-    env = UnityPy.load(outputs[f"{AA}/StandaloneOSX/{game.ui.name}"])
+    env = UnityPy.load(outputs[f"{AA}/{TARGET}/{game.ui.name}"])
     before = {o.path_id: t for o, t in status_labels(UnityPy.load(game.ui.read_bytes()))}
     labels = status_labels(env)
     assert len(labels) == 1 and {o.path_id for o, _ in labels} == before.keys()
@@ -340,7 +341,7 @@ def bundle_tables(data: bytes) -> dict[str, tuple[str, dict]]:
 
 def test_build_registers_race_ui_table_for_turkish(game, outputs):
     """土耳其语包原本没有 Race UI 表：新建 Race UI_tr，并在 catalog 中照 Race UI_en 追加登记。"""
-    turkish = bundle_tables(outputs[f"{AA}/StandaloneOSX/{TURKISH_BUNDLE}"])
+    turkish = bundle_tables(outputs[f"{AA}/{TARGET}/{TURKISH_BUNDLE}"])
     english = bundle_tables(game.english.read_bytes())
     path, table = turkish["Race UI_tr"]
     assert path == "Assets/Localization/Race UI_tr.asset"
