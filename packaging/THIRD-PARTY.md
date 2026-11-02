@@ -16,4 +16,6 @@
 
 不随包分发：`fmod_toolkit`。它内含商业授权的 FMOD 引擎，UnityPy 只在导出音频时才用到，汉化不处理音频。
 
+Windows 发布包的标准库目录是 `Lib/`，依赖在 `Lib/site-packages/`，CPython 的许可证是 `LICENSE.txt`。
+
 版本、下载地址和 sha256 锁定在仓库的 `packaging/runtime.lock.json` 中。

@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from glzh.fonts import CJK_FONT_ASSET, is_injected_serialized
 from glzh.install import MANIFEST, AlreadyPatched, install, restore
 from glzh.string_tables import read_tables
-from tests.conftest import sha
+from tests.conftest import TARGET, sha
 from tests.test_fonts import edit_serialized_font, serialized_fonts
 
 AA = "StreamingAssets/aa"
@@ -52,9 +53,9 @@ def test_install_refreshes_backup_after_game_update(fake_game, game, tmp_path):
     # 模拟游戏更新：catalog 与土耳其语包被新版本覆盖（这里用原版代替，内容与注入后不同即可）
     shutil.copy2(game.catalog, fake_game.catalog)
     shutil.copy2(game.turkish, fake_game.turkish)
-    (backup / AA / "StandaloneOSX" / game.turkish.name).write_bytes(b"stale backup")
+    (backup / AA / TARGET / game.turkish.name).write_bytes(b"stale backup")
     install(fake_game, backup)
-    assert sha(backup / AA / "StandaloneOSX" / game.turkish.name) == sha(game.turkish)
+    assert sha(backup / AA / TARGET / game.turkish.name) == sha(game.turkish)
 
 
 def test_install_refuses_when_game_is_patched_but_backup_is_gone(fake_game, tmp_path):
@@ -127,7 +128,7 @@ def test_install_reverts_files_it_no_longer_writes(fake_game, originals, tmp_pat
         save_table(plain, table, load_table(DEFAULT_DIR, table))
     save_hardcoded(plain, {})
     written = install(fake_game, backup, plain)
-    for rel in (f"{AA}/StandaloneOSX/localization-string-tables-english_assets_all.bundle", f"{AA}/StandaloneOSX/localization-assets-shared_assets_all.bundle"):
+    for rel in (f"{AA}/{TARGET}/localization-string-tables-english_assets_all.bundle", f"{AA}/{TARGET}/localization-assets-shared_assets_all.bundle"):
         assert sha(fake_game.data / rel) == originals[rel]
     restore(fake_game, backup)
     assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
@@ -148,3 +149,26 @@ def test_install_upgrades_v0_0_11_resources_assets_to_multi_atlas(fake_game, gam
     assert cjk["m_IsMultiAtlasTexturesEnabled"] == 1
     restore(fake_game, backup)
     assert {rel: sha(fake_game.data / rel) for rel in originals} == originals
+
+
+def test_interrupted_install_finishes_on_the_next_run(fake_game, originals, tmp_path, monkeypatch):
+    """写到一半文件被占用：重新运行后结果与一次装完相同，还原后回到原版。"""
+    backup = tmp_path / "backup"
+    replace, calls = os.replace, []
+
+    def busy_on_third(src, dst):
+        calls.append(dst)
+        if len(calls) == 3:
+            raise PermissionError(13, "占用", str(dst))
+        replace(src, dst)
+
+    monkeypatch.setattr("os.replace", busy_on_third)
+    with pytest.raises(PermissionError):
+        install(fake_game, backup)
+    monkeypatch.setattr("os.replace", replace)
+    assert not list(fake_game.data.rglob("*.glzh-tmp"))
+
+    written = install(fake_game, backup)
+    assert all(sha(backup / rel) == digest for rel, digest in originals.items())
+    restore(fake_game, backup)
+    assert {rel: sha(fake_game.data / rel) for rel in written} == originals

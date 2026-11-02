@@ -1,8 +1,8 @@
 import pytest
 
-from glzh.game import GameFiles
+from glzh_macos import game_files
 from glzh.install import MANIFEST, BackupIncomplete, NotInstalled, install, restore
-from tests.conftest import sha
+from tests.conftest import TARGET, sha
 from tests.test_string_tables import mono_behaviours
 
 
@@ -31,7 +31,7 @@ def test_restore_with_missing_backup_changes_nothing(fake_game, tmp_path):
     backup = tmp_path / "backup"
     install(fake_game, backup)
     patched = {p.name: sha(p) for p in fake_game.inputs}
-    (backup / "StreamingAssets/aa/StandaloneOSX" / fake_game.ui.name).unlink()
+    (backup / "StreamingAssets/aa" / TARGET / fake_game.ui.name).unlink()
     with pytest.raises(BackupIncomplete, match="验证游戏文件的完整性"):
         restore(fake_game, backup)
     assert {p.name: sha(p) for p in fake_game.inputs} == patched
@@ -52,5 +52,5 @@ def test_restore_without_game_keeps_install_record(fake_game, tmp_path):
     backup = tmp_path / "backup"
     install(fake_game, backup)
     with pytest.raises(FileNotFoundError, match="找到 Golden Lap"):
-        restore(GameFiles.from_app(tmp_path / "moved.app"), backup)
+        restore(game_files(tmp_path / "moved.app"), backup)
     assert (backup / MANIFEST).exists()

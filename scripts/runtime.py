@@ -7,16 +7,18 @@
 
 import hashlib
 import json
+import os
 import shutil
 import tarfile
 import tempfile
 import urllib.request
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 LOCK = REPO / "packaging" / "runtime.lock.json"
-CACHE = Path.home() / "Library" / "Caches" / "GoldenLapZH-build"
+CACHE = Path(os.environ.get("LOCALAPPDATA", Path.home() / "Library" / "Caches")) / "GoldenLapZH-build"
 PYTHON = "python3.12"  # 入口；同目录下的其余启动器都是指向它的符号链接，删掉
 SITE = f"lib/{PYTHON}/site-packages"
 LICENSE = "LICENSE.python-build-standalone.txt"  # 解释器构建项目本身的许可证（MPL-2.0）；CPython 的在标准库目录里
@@ -43,9 +45,48 @@ PRUNE = [
     f"lib/{PYTHON}/lib-dynload/_tkinter.cpython-312-darwin.so",
 ]
 
+WINDOWS = "windows-x86_64"  # 与 macOS 的 arm64、x86_64 并列的运行环境架构名
+
+
+@dataclass(frozen=True)
+class Layout:
+    """一种系统上运行环境的目录布局。"""
+
+    site: str  # site-packages，相对运行环境根目录
+    allowed: tuple[str, ...]  # 运行环境里只应有这些前缀
+    prune: tuple[str, ...]  # 运行汉化用不到的部分（glob 模式）
+
+
+MACOS_LAYOUT = Layout(SITE, ALLOWED, tuple(PRUNE))
+WINDOWS_LAYOUT = Layout(
+    "Lib/site-packages",
+    ("python.exe", "python3.dll", "python312.dll", "vcruntime140.dll", "vcruntime140_1.dll", "DLLs/", "Lib/", "LICENSE.txt", LICENSE),
+    (
+        "**/*.pdb",
+        "Scripts",
+        "include",
+        "libs",
+        "tcl",
+        "pythonw.exe",
+        "DLLs/_test*",
+        "DLLs/_tkinter*",
+        "DLLs/tcl*",
+        "DLLs/tk*",
+        "Lib/ensurepip",
+        "Lib/idlelib",
+        "Lib/test",
+        "Lib/tkinter",
+        "Lib/turtledemo",
+    ),
+)
+
+
+def layout(arch: str) -> Layout:
+    return WINDOWS_LAYOUT if arch == WINDOWS else MACOS_LAYOUT
+
 
 def lock() -> dict:
-    return json.loads(LOCK.read_text())
+    return json.loads(LOCK.read_text(encoding="utf-8"))
 
 
 def fetch(url: str, sha256: str, cache: Path = CACHE) -> Path:
@@ -99,17 +140,18 @@ def build_runtime(arch: str, dest: Path, cache: Path = CACHE) -> Path:
     spec = lock()
     with tarfile.open(fetch(**spec["python"][arch], cache=cache)) as tf:
         tf.extractall(dest, filter="data")
-    root = dest / "python"
-    for pattern in PRUNE:
+    root, target = dest / "python", layout(arch)
+    for pattern in target.prune:
         for path in root.glob(pattern):
             if path.is_dir() and not path.is_symlink():
                 shutil.rmtree(path)
             else:
                 path.unlink()
-    for path in (root / "bin").iterdir():
-        if path.name != PYTHON:
-            path.unlink()
-    site = root / SITE
+    if arch != WINDOWS:
+        for path in (root / "bin").iterdir():
+            if path.name != PYTHON:
+                path.unlink()
+    site = root / target.site
     for path in site.iterdir():
         if path.name.startswith("pip"):
             shutil.rmtree(path)

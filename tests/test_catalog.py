@@ -4,7 +4,7 @@ import struct
 
 import pytest
 
-from glzh.catalog import bundle_crcs, disable_crc
+from glzh.catalog import ENTRY, bundle_crcs, disable_crc
 from glzh.game import LOCALES_BUNDLE, TURKISH_BUNDLE
 
 
@@ -63,3 +63,23 @@ def resolve(catalog_text: str) -> dict:
         }
 
     return {key: [location(e) for e in entries] for key, entries in buckets}
+
+
+def fake_catalog(path: str) -> str:
+    """只有一个资源包条目的 catalog，路径分隔符随平台不同。"""
+    entries = struct.pack("<i", 1) + ENTRY.pack(0, 0, 0, 0, 0, 0, 0)
+    extra = '{"m_Crc":12345}'.encode("utf-16-le")
+    return json.dumps(
+        {
+            "m_InternalIds": [path],
+            "m_EntryDataString": base64.b64encode(entries).decode(),
+            "m_ExtraDataString": base64.b64encode(extra).decode(),
+        }
+    )
+
+
+@pytest.mark.parametrize("sep", ["/", "\\"])
+def test_bundle_is_found_by_file_name_with_either_separator(sep):
+    text = fake_catalog(sep.join(["{RuntimePath}", "StandaloneTest", TURKISH_BUNDLE]))
+    assert bundle_crcs(text) == {TURKISH_BUNDLE: 12345}
+    assert bundle_crcs(disable_crc(text, {TURKISH_BUNDLE})) == {TURKISH_BUNDLE: 0}

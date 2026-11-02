@@ -1,12 +1,7 @@
 """玩家本地 Golden Lap 的文件布局。"""
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
-
-from glzh.steam import find_app
-
-DEFAULT_APP = Path.home() / "Library/Application Support/Steam/steamapps/common/Golden Lap/goldenlap.app"
 
 TURKISH_BUNDLE = "localization-string-tables-turkish_assets_all.bundle"
 ENGLISH_BUNDLE = "localization-string-tables-english_assets_all.bundle"
@@ -16,26 +11,13 @@ UI_BUNDLE_GLOB = "ui_assets_all_*.bundle"  # 文件名含内容哈希，随游�
 AA_DIR = "StreamingAssets/aa"  # Addressables 目录，相对 Data 目录
 
 
-def app_path() -> Path:
-    """游戏 .app 路径：环境变量 GOLDEN_LAP_APP 优先，其次在各 Steam 库中查找，最后用 Steam 默认库位置。"""
-    if "GOLDEN_LAP_APP" in os.environ:
-        return Path(os.environ["GOLDEN_LAP_APP"])
-    return find_app() or DEFAULT_APP
-
-
 @dataclass(frozen=True)
 class GameFiles:
-    """游戏 Data 目录（goldenlap.app/Contents/Resources/Data）下与汉化有关的文件。"""
+    """游戏 Data 目录下与汉化有关的文件。"""
 
     data: Path
-
-    @classmethod
-    def from_app(cls, app: Path) -> "GameFiles":
-        return cls(Path(app) / "Contents/Resources/Data")
-
-    @property
-    def app(self) -> Path:
-        return self.data.parents[2]
+    build_target: str  # Addressables 目录下资源包所在的目录名，按平台不同
+    il2cpp: bool = False  # IL2CPP 打包的游戏没有 Managed 目录
 
     @property
     def aa(self) -> Path:
@@ -63,7 +45,7 @@ class GameFiles:
 
     @property
     def bundles(self) -> Path:
-        return self.aa / "StandaloneOSX"
+        return self.aa / self.build_target
 
     @property
     def catalog(self) -> Path:
@@ -98,8 +80,9 @@ class GameFiles:
         return [self.catalog, self.english, self.turkish, self.locales, self.shared, self.ui, self.resources, self.race_scene]
 
     def exists(self) -> bool:
-        """原始文件与只读依赖（程序集、globalgamemanagers.assets）都在。"""
+        """原始文件与只读依赖（globalgamemanagers.assets，以及 Mono 版的程序集）都在。"""
+        deps = [self.globalgamemanagers] + ([] if self.il2cpp else [self.managed])
         try:
-            return all(path.exists() for path in self.inputs + [self.globalgamemanagers, self.managed])
+            return all(path.exists() for path in self.inputs + deps)
         except FileNotFoundError:
             return False
