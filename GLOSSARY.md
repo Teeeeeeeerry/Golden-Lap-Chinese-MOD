@@ -69,7 +69,7 @@ _Avoid_: 字符串、词条、entry
 _Avoid_: 审核状态、质量等级
 
 **发布包**:
-发到 GitHub Release 的 zip，含安装器、还原脚本、源码、译文、说明，以及内置的 Python 运行环境（ADR 0007），按系统与芯片架构分包（macOS arm64、macOS x86_64、Windows x64）；不含游戏原始资源与字体。由 `scripts/release.py` 生成，同时生成 macOS 一行安装命令用的 `install.sh`（写有版本号和各 macOS 包的 sha256），一起上传到同一个 GitHub Release。
+发到 GitHub Release 的 zip，含安装器、还原脚本、源码、译文、说明，以及内置的 Python 运行环境（ADR 0007），按系统与芯片架构分包（macOS arm64、macOS x86_64、Windows x64）；不含游戏原始资源与字体。由 `scripts/release.py` 生成，同时生成 macOS 一行安装命令用的 `install.sh`（写有版本号和各 macOS 包的 sha256）；打版本标签后由 GitHub Actions 构建并发布到同一个 GitHub Release（见 ADR 0011）。
 _Avoid_: 安装包、补丁包
 
 **更新比对**:

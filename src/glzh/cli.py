@@ -98,7 +98,7 @@ def cmd_install(args: list[str], platform: Platform) -> int:
     print("正在备份并注入，ui 包较大，约需半分钟……")
     try:
         written = install.install(src, platform.backup_dir)
-    except install.AlreadyPatched as e:
+    except (install.AlreadyPatched, ValueError) as e:  # ValueError：构建发现游戏结构变了，游戏文件还没动
         print(e)
         return 1
     except PermissionError as e:

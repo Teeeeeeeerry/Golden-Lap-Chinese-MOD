@@ -84,3 +84,14 @@ def test_failed_write_leaves_no_temporary_file(tmp_path, monkeypatch):
     with pytest.raises(PermissionError):
         install._write_atomic(target, b"new")
     assert target.read_bytes() == b"old" and [p.name for p in tmp_path.iterdir()] == ["level2"]
+
+
+def test_install_reports_a_changed_game_without_a_traceback(tmp_path, capsys, monkeypatch):
+    def changed(*_):
+        raise ValueError("ui 包里找不到这些类型的 typetree")
+
+    monkeypatch.setattr(GameFiles, "exists", lambda self: True)
+    monkeypatch.setattr("glzh.cli.diff_with_game", lambda _: {})
+    monkeypatch.setattr(install, "install", changed)
+    assert main(["install"], FakePlatform(tmp_path)) == 1
+    assert "typetree" in capsys.readouterr().out
