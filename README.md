@@ -36,7 +36,7 @@
 
 ## 卸载
 
-Windows：退出游戏后双击发布包里的 `restore.bat`。备份在 `%LOCALAPPDATA%\GoldenLapZHackup`。
+Windows：退出游戏后双击发布包里的 `restore.bat`。备份在 `%LOCALAPPDATA%\GoldenLapZH\backup`。
 
 macOS：
 
