@@ -10,6 +10,10 @@
       "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15+20261009-x86_64-apple-darwin-install_only.tar.gz",
       "sha256": "4c84ef5abe4bc145646175fce9b881936d60126b9a3f9a24c6308e2d035ca5c6"
     },
+    "windows-x86_64": {
+      "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15+20261009-x86_64-pc-windows-msvc-install_only.tar.gz",
+      "sha256": "194c8f0d9e0de6f1c4576e5dfa67819a48c764be87608b74b8ad43387a57b93b"
+    },
     "license": {
       "url": "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE",
       "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
@@ -136,6 +140,63 @@
         "file": "texture2ddecoder-1.0.6-cp311-abi3-macosx_10_9_x86_64.whl",
         "url": "https://files.pythonhosted.org/packages/3a/b2/b01747f95b21e314b96d54a00d99f7ab0b3987928dbfdf312fc01b527be4/texture2ddecoder-1.0.6-cp311-abi3-macosx_10_9_x86_64.whl",
         "sha256": "bc09a8f3b5717c8a4a41be57a0a39dee3378aebfcc3ed0a25331728496886548"
+      }
+    ],
+    "windows-x86_64": [
+      {
+        "file": "unitypy-1.25.4-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/5a/ff/916b14f08ebbf4ee30a29e4b5bec592ed62dc0c0b9276a95f903a1da102c/unitypy-1.25.4-cp312-cp312-win_amd64.whl",
+        "sha256": "5e3f6fa44e23e7fc52a32f128d709a97901e0d10e3d87e0b602c5f5a58e3a4ef"
+      },
+      {
+        "file": "fonttools-4.67.0-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/c1/3a/625a6dd0173e88dbea1826405b4bcbfa06c6ca095310ed720caba36b2e43/fonttools-4.67.0-cp312-cp312-win_amd64.whl",
+        "sha256": "2bfab2f5d1d255dec82f4bd082a1c10e77df808e42210890f50a9c30bf91570e"
+      },
+      {
+        "file": "typetreegeneratorapi-0.0.10-cp36-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/ed/bc/f911995cae93fa8fd882a677f6bc304965db6f066bbabdee6e761762d512/typetreegeneratorapi-0.0.10-cp36-abi3-win_amd64.whl",
+        "sha256": "e96003e973c8d52d221b4ae50f377bcaf7538f2098e437d5383a1b7f13fa72ba"
+      },
+      {
+        "file": "astc_encoder_py-0.1.12-cp37-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/81/36/9c36fdcedc314f514298f602661518a1525bcb37d81c1197fc290bce8484/astc_encoder_py-0.1.12-cp37-abi3-win_amd64.whl",
+        "sha256": "a45d375fc6b0ff2cd3d772aab3eef19a6b7f3e067306e11fab37820ea9576121"
+      },
+      {
+        "file": "attrs-26.1.0-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl",
+        "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+      },
+      {
+        "file": "brotli-1.2.1-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/3e/82/b7f6c56393f2224ff4108cf1cc255921be1c0ae5962163edbe367c8a55bc/brotli-1.2.1-cp312-cp312-win_amd64.whl",
+        "sha256": "f5342b8256476554b4045db8b7bf4dc4044d0405485f220f0cd80764bc0d7faf"
+      },
+      {
+        "file": "etcpak-0.9.15-cp37-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/65/d5/6659ba74d4fec78a46dcf4ae6780c6fac34acf041c8e4d63bba709995a4d/etcpak-0.9.15-cp37-abi3-win_amd64.whl",
+        "sha256": "669d902eeb774bc6d4df226183c09c3d03c9fc0f47b4c0c20030fc2b39eec2f2"
+      },
+      {
+        "file": "fsspec-2026.9.0-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/6c/c0/a98505f18594f1bce828bb159cec0fcf9860562f1a2c85913409fc8f3d9e/fsspec-2026.9.0-py3-none-any.whl",
+        "sha256": "8dd6e646e99ea382bd85f97a45e6b526a442d79423a7dc673f1e2756d05fcb5f"
+      },
+      {
+        "file": "lz4-4.4.5-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/a5/0b/a54cd7406995ab097fceb907c7eb13a6ddd49e0b231e448f1a81a50af65c/lz4-4.4.5-cp312-cp312-win_amd64.whl",
+        "sha256": "713a777de88a73425cf08eb11f742cd2c98628e79a8673d6a52e3c5f0c116f33"
+      },
+      {
+        "file": "pillow-13.0.0-cp312-cp312-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/ff/cd/73a79ecdc822076002eb24b5e1e4a530b0bb5310fcb6d239abbec877110b/pillow-13.0.0-cp312-cp312-win_amd64.whl",
+        "sha256": "ff3fe9eb621fbb9db4c4be33ab946f6bac5f98ab50ca8d3260503653656c961b"
+      },
+      {
+        "file": "texture2ddecoder-1.0.6-cp311-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/ac/f8/cbbefcb1b3435aea8ef1b3d65622c933f79ea7c70af4d4571f667277cc86/texture2ddecoder-1.0.6-cp311-abi3-win_amd64.whl",
+        "sha256": "1bad8209d9dfbfc7daf13ea2e545236ea2bbc1e423b2992b6e7563909975a47b"
       }
     ]
   }

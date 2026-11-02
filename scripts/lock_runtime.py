@@ -19,13 +19,17 @@ from runtime import LOCK, REPO  # 与本脚本同在 scripts/ 下
 PYTHON_RELEASE = "20261009"
 PYTHON_VERSION = "3.12.15"
 # 架构 → (python-build-standalone 的平台名, wheel 平台标签)
-ARCHS = {"arm64": ("aarch64-apple-darwin", "macosx_11_0_arm64"), "x86_64": ("x86_64-apple-darwin", "macosx_11_0_x86_64")}
+ARCHS = {
+    "arm64": ("aarch64-apple-darwin", "macosx_11_0_arm64"),
+    "x86_64": ("x86_64-apple-darwin", "macosx_11_0_x86_64"),
+    "windows-x86_64": ("x86_64-pc-windows-msvc", "win_amd64"),
+}
 EXCLUDED = {"fmod_toolkit"}
 SDIST_ONLY = {"tpk_ar"}  # 纯 Python，PyPI 上只有源码包
 
 
 def requirements() -> list[str]:
-    lines = (REPO / "requirements.txt").read_text().splitlines()
+    lines = (REPO / "requirements.txt").read_text(encoding="utf-8").splitlines()
     reqs = [line.strip() for line in lines if line.strip() and not line.startswith("#")]
     return [r for r in reqs if r.split("==")[0] not in EXCLUDED]
 
@@ -37,14 +41,12 @@ def pypi_files(name: str, version: str) -> dict[str, dict]:
 
 def python_asset(arch: str) -> dict:
     name = f"cpython-{PYTHON_VERSION}+{PYTHON_RELEASE}-{ARCHS[arch][0]}-install_only.tar.gz"
-    out = subprocess.run(
-        ["gh", "api", f"repos/astral-sh/python-build-standalone/releases/tags/{PYTHON_RELEASE}", "-q", f'.assets[] | select(.name=="{name}") | .digest'],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
-    if not out.startswith("sha256:"):
+    with urllib.request.urlopen(f"https://api.github.com/repos/astral-sh/python-build-standalone/releases/tags/{PYTHON_RELEASE}", timeout=60) as resp:
+        digests = [asset.get("digest", "") for asset in json.load(resp)["assets"] if asset["name"] == name]
+    if not (digests and digests[0].startswith("sha256:")):
         raise ValueError(f"python-build-standalone {PYTHON_RELEASE} 里找不到 {name} 的 sha256")
     url = f"https://github.com/astral-sh/python-build-standalone/releases/download/{PYTHON_RELEASE}/{name}"
-    return {"url": url, "sha256": out.removeprefix("sha256:")}
+    return {"url": url, "sha256": digests[0].removeprefix("sha256:")}
 
 
 def wheel_for(req: str, platform: str) -> str:

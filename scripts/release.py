@@ -19,30 +19,39 @@ sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
 from glzh import translations  # noqa: E402
-from scripts.runtime import ALLOWED, CACHE, build_runtime  # noqa: E402
+from scripts.runtime import CACHE, WINDOWS, build_runtime, layout  # noqa: E402
 
 PREFIX = "GoldenLap-zh-Hans"
 
 # (仓库内路径, 包内路径)；目录按其下 git 跟踪的文件逐个加入
-LAYOUT = [
-    ("macos/install.command", "install.command"),
-    ("macos/restore.command", "restore.command"),
-    ("macos/_env.sh", "_env.sh"),
+COMMON = [
     ("src/glzh", "src/glzh"),
-    ("macos/glzh_macos", "src/glzh_macos"),
     ("translations", "translations"),
-    ("requirements.txt", "requirements.txt"),
-    ("docs/release-README.md", "README.md"),
     ("LICENSE", "LICENSE"),
     ("VERSION", "VERSION"),
     ("packaging/THIRD-PARTY.md", "runtime/THIRD-PARTY.md"),
 ]
+MACOS = [
+    ("macos/install.command", "install.command"),
+    ("macos/restore.command", "restore.command"),
+    ("macos/_env.sh", "_env.sh"),
+    ("macos/glzh_macos", "src/glzh_macos"),
+    ("requirements.txt", "requirements.txt"),
+    ("docs/release-README.md", "README.md"),
+]
+WINDOWS_FILES = [
+    ("windows/install.bat", "install.bat"),
+    ("windows/restore.bat", "restore.bat"),
+    ("windows/_run.bat", "_run.bat"),
+    ("windows/glzh_windows", "src/glzh_windows"),
+    ("docs/release-README-windows.md", "README.md"),
+]
 INSTALLER = "install.sh"  # 一行命令下载的安装脚本，与发布包一起上传到 Release
-ARCHS = ("arm64", "x86_64")  # Apple 芯片、Intel；运行环境分架构，每种芯片一个发布包
+ARCHS = ("arm64", "x86_64")  # Apple 芯片、Intel；运行环境分架构，每种芯片一个发布包；Windows 另有 WINDOWS 一个包
 RUNTIME = "runtime/python"
 # 白名单之内也拦住游戏资源和字体
 RUNTIME_FORBIDDEN = (".bundle", ".asset", ".resS", ".ttf", ".otf", ".ttc", "catalog.json")
-ALLOWED_SUFFIXES = {".command", ".sh", ".py", ".json", ".txt", ".md", ""}
+ALLOWED_SUFFIXES = {".command", ".sh", ".bat", ".py", ".json", ".txt", ".md", ""}
 
 
 def _tracked(repo: Path, path: str) -> list[tuple[str, int]]:
@@ -51,10 +60,10 @@ def _tracked(repo: Path, path: str) -> list[tuple[str, int]]:
     return [(line.split("\t", 1)[1], 0o755 if line.startswith("100755") else 0o644) for line in out.stdout.splitlines()]
 
 
-def release_files(repo: Path = REPO) -> list[tuple[Path, str, int]]:
-    """待收录的 (源文件, 包内路径, 权限位)，按包内路径排序。"""
+def release_files(repo: Path = REPO, arch: str = "arm64") -> list[tuple[Path, str, int]]:
+    """arch 的发布包待收录的 (源文件, 包内路径, 权限位)，按包内路径排序。"""
     files = []
-    for src, dst in LAYOUT:
+    for src, dst in COMMON + (WINDOWS_FILES if arch == WINDOWS else MACOS):
         tracked = _tracked(repo, src)
         if not tracked:
             raise FileNotFoundError(f"{src} 未被 git 跟踪，不能收录进发布包")
@@ -70,11 +79,11 @@ def check_contents(names: list[str]) -> None:
             raise ValueError(f"发布包不应包含 {name}：只允许脚本、源码、译文与文档")
 
 
-def check_runtime(names: list[str]) -> None:
+def check_runtime(names: list[str], arch: str = "arm64") -> None:
     """运行环境只允许解释器、标准库、依赖与许可证，且不应混入游戏资源或字体。"""
     for name in names:
         rel = name.removeprefix(f"{RUNTIME}/")
-        if not rel.startswith(ALLOWED) or name.endswith(RUNTIME_FORBIDDEN):
+        if not rel.startswith(layout(arch).allowed) or name.endswith(RUNTIME_FORBIDDEN):
             raise ValueError(f"运行环境不应包含 {name}")
 
 
@@ -86,18 +95,18 @@ def runtime_files(arch: str, dest: Path, cache: Path = CACHE) -> list[tuple[Path
 
 
 def build_release(out_dir: Path, repo: Path = REPO, arch: str = "arm64", cache: Path = CACHE) -> Path:
-    """在 out_dir 生成 GoldenLap-zh-Hans-v<版本>-macos-<架构>.zip，返回其路径；译文校验不通过时报错。"""
+    """在 out_dir 生成 arch 的发布包（…-macos-<架构>.zip 或 …-windows-x86_64.zip），返回其路径；译文校验不通过时报错。"""
     errors = translations.validate_dir(repo / "translations" / "zh-Hans")
     if errors:
         raise ValueError("译文校验不通过：\n" + "\n".join(errors))
-    files = release_files(repo)
+    files = release_files(repo, arch)
     check_contents([name for _, name, _ in files])
-    root = f"{PREFIX}-v{(repo / 'VERSION').read_text().strip()}"
+    root = f"{PREFIX}-v{(repo / 'VERSION').read_text(encoding='utf-8').strip()}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    archive = out_dir / f"{root}-macos-{arch}.zip"
+    archive = out_dir / f"{root}-{arch if arch == WINDOWS else f'macos-{arch}'}.zip"
     with tempfile.TemporaryDirectory() as tmp:
         runtime = runtime_files(arch, Path(tmp), cache)
-        check_runtime([name for _, name, _ in runtime])
+        check_runtime([name for _, name, _ in runtime], arch)
         with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zf:
             for src, name, mode in files + runtime:
                 info = zipfile.ZipInfo(f"{root}/{name}", date_time=(2026, 1, 1, 0, 0, 0))
@@ -116,16 +125,19 @@ def build_releases(out_dir: Path, repo: Path = REPO, cache: Path = CACHE) -> dic
 
 def build_installer(out_dir: Path, archives: dict[str, Path], repo: Path = REPO) -> Path:
     """把版本号和各发布包的 sha256 写进安装脚本模板：玩家下载到的包必须正是这次构建出的那个。"""
-    script = (repo / "macos" / "web-install.sh").read_text().replace("@VERSION@", (repo / "VERSION").read_text().strip())
+    script = (repo / "macos" / "web-install.sh").read_text(encoding="utf-8").replace("@VERSION@", (repo / "VERSION").read_text(encoding="utf-8").strip())
     for arch, archive in archives.items():
         script = script.replace(f"@SHA256_{arch}@", hashlib.sha256(archive.read_bytes()).hexdigest())
     path = out_dir / INSTALLER
-    path.write_text(script)
+    path.write_text(script, encoding="utf-8", newline="\n")
     return path
 
 
 def main(argv: list[str]) -> int:
     out_dir = Path(argv[0]) if argv else REPO / "dist"
+    if sys.platform == "win32":  # macOS 包要保留可执行位，只在 macOS 上构建（ADR 0011）
+        print(build_release(out_dir, arch=WINDOWS))
+        return 0
     for archive in build_releases(out_dir).values():
         print(archive)
     print(out_dir / INSTALLER)
