@@ -6,7 +6,7 @@ import zipfile
 
 import pytest
 
-from scripts.release import ARCHS, REPO, RUNTIME, WINDOWS, build_release, check_runtime, release_files
+from scripts.release import ARCHS, REPO, RUNTIME, WINDOWS, build_release, check_runtime, check_tag, release_files
 
 ROOT = f"GoldenLap-zh-Hans-v{(REPO / 'VERSION').read_text(encoding='utf-8').strip()}"
 PY = f"{RUNTIME}/python.exe"
@@ -113,3 +113,9 @@ def test_package_installs_and_restores_without_system_python(package, fake_game,
     result = run(root / "restore.bat", fake_game, home)
     assert result.returncode == 0, result.stdout.decode("utf-8", "replace")
     assert shas(fake_game, originals) == originals
+
+
+def test_tag_must_match_version():
+    version = (REPO / "VERSION").read_text(encoding="utf-8").strip()
+    assert check_tag(f"v{version}")
+    assert not check_tag(f"v{version}9") and not check_tag(version)

@@ -133,7 +133,17 @@ def build_installer(out_dir: Path, archives: dict[str, Path], repo: Path = REPO)
     return path
 
 
+def check_tag(tag: str, repo: Path = REPO) -> bool:
+    """发布标签必须是 v<版本>：install.sh 按版本号下载，标签不一致时链接会失效。"""
+    return tag == f"v{(repo / 'VERSION').read_text(encoding='utf-8').strip()}"
+
+
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--check-tag"]:
+        if not check_tag(argv[1]):
+            print(f"标签 {argv[1]} 与 VERSION 不一致，不发布")
+            return 1
+        return 0
     out_dir = Path(argv[0]) if argv else REPO / "dist"
     if sys.platform == "win32":  # macOS 包要保留可执行位，只在 macOS 上构建（ADR 0011）
         print(build_release(out_dir, arch=WINDOWS))

@@ -21,7 +21,10 @@
 
 游戏更新后再运行一次这条命令即可。要恢复原版，在命令末尾加上 glzh restore。
 
-也可以从 Releases 页面下载压缩包安装，步骤见项目主页。暂不支持 Windows。
+也可以从 Releases 页面下载压缩包安装，步骤见项目主页。
+
+[h2]使用方法（Windows）[/h2]
+需要 Windows 10 或更新版本（64 位），不用安装 Python。到 Releases 页面下载文件名以 windows-x86_64.zip 结尾的发布包，退出游戏，完整解压后双击 install.bat。要恢复原版，双击 restore.bat。
 
 [h2]许可[/h2]
 脚本：MIT；译文：CC BY-NC-SA 4.0。安装器只在玩家本地修改游戏文件，发布包不含任何游戏原始资源或字体。
